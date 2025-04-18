@@ -1,0 +1,39 @@
+name: goreleaser
+
+on:
+  push:
+    tags: #vX.X.Xというタグのときにリリースする
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # これがないとリリースを作成できない
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4  # v3からv4へアップデート
+        with:
+          fetch-depth: 0
+      -
+        name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+          cache: true  # 依存関係のキャッシュを有効化
+      -
+        name: Run Tests
+        run: go test -v ./...  # リリース前にテストを実行
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          # environment-variables - GitHub Actions - GoReleaser https://goreleaser.com/ci/actions/#environment-variables
+          # i-3 - GitHub Actionsの使い方 | 純規の暇人趣味ブログ https://jyn.jp/github-actions-usage/#i-3
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # リリースノートの自動生成設定
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
