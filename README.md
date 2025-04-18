@@ -1,5 +1,7 @@
 # go-img-diff
 
+> **Note**: This repository contains code that was largely generated with the assistance of GitHub Copilot (Claude 3.7 Sonnet).
+
 A tool to detect and visualize differences between two images. It automatically detects positional deviations in images, performs optimal alignment, and highlights differences with red borders. It can also overlay the original image with colored transparency within the difference regions.
 
 This tool is implemented with zero external dependencies and does not rely on OpenCV or any other image processing libraries. **It uses only the standard Go libraries for image processing**.
