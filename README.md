@@ -6,6 +6,17 @@ A tool to detect and visualize differences between two images. It automatically 
 
 This tool is implemented with zero external dependencies and does not rely on OpenCV or any other image processing libraries. **It uses only the standard Go libraries for image processing**.
 
+---
+
+**Input**
+
+<img width="30%" alt="input1" src="https://github.com/user-attachments/assets/ff098e59-e5e5-406a-910e-f019d8e2f897"> <img width="30%" alt="input2" src="https://github.com/user-attachments/assets/b847449f-9c17-4400-a959-352ab9f82193">
+
+**Output**
+
+<img width="50%" alt="output" src="https://github.com/user-attachments/assets/ac358195-a15a-4673-a878-3a7080840516" />
+
+
 ## Usage
 
 ```bash
