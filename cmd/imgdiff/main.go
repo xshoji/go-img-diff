@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,29 +49,19 @@ var (
 	optionSamplingRate = flag.Int("s", 4, "Sampling rate for pixel comparison (1=all pixels, 2=every other pixel, etc)")
 
 	// 高速モード設定
-	// FastMode (-f) パラメータは、画像比較処理を高速化するモードを有効にします。
-	// 有効にすると、複数段階のサンプリングを適用し、最初に粗いサンプリングで大まかな位置合わせを行い、
+	// 高速モードはデフォルトで有効になっています。画像比較を高速化するため、
+	// 複数段階のサンプリングを適用し、最初に粗いサンプリングで大まかな位置合わせを行い、
 	// 次の段階でより細かいサンプリングで精度を高めます。
-	// 比較する画像が大きく、処理時間を短縮したい場合に有効です。
-	// --- 追記された説明 ---
-	// 高速モードが有効な場合、以下の処理が行われます：
-	// 1. 粗いサンプリングレートを使用して、画像全体の大まかな位置合わせを高速に計算します。
-	// 2. 粗い位置合わせ結果を基に、探索範囲を絞り込んで次の段階でより細かいサンプリングを適用します。
-	// 3. 最終段階では、全ピクセルを使用して精密な位置合わせを行います。
-	// この段階的なアプローチにより、計算量を大幅に削減しつつ、精度を維持することが可能です。
-	// 特に高解像度の画像や大きな画像を比較する際に効果的です。
-	// --- 追記ここまで ---
-	optionFastMode = flag.Bool("f", false, "Enable fast mode with progressive sampling")
+	// 比較する画像が大きく、処理時間を短縮したい場合に特に効果的です。
+	optionPreciseMode = flag.Bool("p", false, "Enable precise mode (disables the default fast mode for more accurate comparison)")
 
 	// 透過表示の設定
-	optionShowOverlay  = flag.Bool("oe", true, "Show transparent overlay of the first image in diff areas")       // overlay → l (layer)
+	optionNoOverlay    = flag.Bool("od", false, "Disable transparent overlay of the first image in diff areas")   // no overlay
 	optionTransparency = flag.Float64("ot", 0.95, "Transparency level for overlay (0.0=opaque, 1.0=transparent)") // alpha → p (percent)
 
 	// 色調設定
 	optionUseTint          = flag.Bool("n", true, "Apply color tint to overlay")                                  // tint → n (tint)
-	optionTintRed          = flag.Int("tr", 255, "Red component for tint color (0-255)")                          // tint-r → r
-	optionTintGreen        = flag.Int("tg", 0, "Green component for tint color (0-255)")                          // tint-g → g
-	optionTintBlue         = flag.Int("tb", 0, "Blue component for tint color (0-255)")                           // tint-b → b
+	optionTintColor        = flag.String("tc", "255,0,0", "Tint color as R,G,B (0-255 for each value)")           // 新しい統合オプション
 	optionTintStrength     = flag.Float64("ts", 0.05, "Tint strength (0.0=no tint, 1.0=full tint)")               // tint-strength → i (intensity)
 	optionTintTransparency = flag.Float64("tw", 0.2, "Transparency level for tint (0.0=opaque, 1.0=transparent)") // tint-alpha → w (weight)
 )
@@ -80,7 +71,6 @@ func init() {
 	customizeHelpMessage()
 }
 
-// main エントリポイント
 func main() {
 	// コマンドライン引数の解析
 	flag.Parse()
@@ -110,7 +100,6 @@ func main() {
 // validateRequiredOptions 必須オプションが指定されているかチェック
 func validateRequiredOptions() error {
 	var missingOptions []string
-
 	if *optionImageInput1 == "" {
 		missingOptions = append(missingOptions, "a")
 	}
@@ -120,12 +109,10 @@ func validateRequiredOptions() error {
 	if *optionOutput == "" {
 		missingOptions = append(missingOptions, "o")
 	}
-
 	if len(missingOptions) > 0 {
 		return fmt.Errorf("\n[ERROR] Missing required option(s): %s\n",
 			strings.Join(missingOptions, ", "))
 	}
-
 	return nil
 }
 
@@ -137,21 +124,21 @@ func printFlagInfo() {
 			fmt.Sprintf("%s %v", a.Name, a.Value),
 			strings.Trim(a.Usage, "\n"))
 	})
-
 	fmt.Printf("\n\n")
 }
 
 // createAppConfig アプリケーション設定オブジェクトを作成
 func createAppConfig() *config.AppConfig {
-	// 色調の範囲を制限
-	r := utils.Clamp(*optionTintRed, 0, 255)
-	g := utils.Clamp(*optionTintGreen, 0, 255)
-	b := utils.Clamp(*optionTintBlue, 0, 255)
+	// 色調のパース
+	r, g, b := parseTintColor(*optionTintColor)
 
 	// 透明度の範囲を制限
 	transparency := utils.ClampFloat64(*optionTransparency, 0.0, 1.0)
 	tintStrength := utils.ClampFloat64(*optionTintStrength, 0.0, 1.0)
 	tintTransparency := utils.ClampFloat64(*optionTintTransparency, 0.0, 1.0)
+
+	// 高速モードは厳密モードが無効の場合に有効
+	fastMode := !*optionPreciseMode
 
 	return &config.AppConfig{
 		MaxOffset:              *optionMaxOffset,
@@ -159,15 +146,47 @@ func createAppConfig() *config.AppConfig {
 		HighlightDiff:          true, // 常に差分を赤枠で強調表示
 		NumCPU:                 *optionNumCPU,
 		SamplingRate:           *optionSamplingRate,
-		FastMode:               *optionFastMode,
+		FastMode:               fastMode,
 		ProgressStep:           5, // 進捗表示のステップを固定値に設定
-		ShowTransparentOverlay: *optionShowOverlay,
+		ShowTransparentOverlay: !*optionNoOverlay,
 		OverlayTransparency:    transparency,
 		OverlayTint:            color.RGBA{uint8(r), uint8(g), uint8(b), 255},
 		UseTint:                *optionUseTint,
 		TintStrength:           tintStrength,
 		TintTransparency:       tintTransparency,
 	}
+}
+
+// parseTintColor は "R,G,B" 形式の文字列から RGB の整数値を取得します
+func parseTintColor(colorStr string) (r, g, b int) {
+	r, g, b = 255, 0, 0 // デフォルト値は赤
+
+	parts := strings.Split(colorStr, ",")
+	if len(parts) != 3 {
+		fmt.Printf("[WARNING] Invalid tint color format '%s'. Using default (255,0,0).\n", colorStr)
+		return
+	}
+
+	var err error
+	if r, err = strconv.Atoi(strings.TrimSpace(parts[0])); err != nil {
+		fmt.Printf("[WARNING] Invalid red value in tint color. Using default (255).\n")
+		r = 255
+	}
+	if g, err = strconv.Atoi(strings.TrimSpace(parts[1])); err != nil {
+		fmt.Printf("[WARNING] Invalid green value in tint color. Using default (0).\n")
+		g = 0
+	}
+	if b, err = strconv.Atoi(strings.TrimSpace(parts[2])); err != nil {
+		fmt.Printf("[WARNING] Invalid blue value in tint color. Using default (0).\n")
+		b = 0
+	}
+
+	// 範囲を制限
+	r = utils.Clamp(r, 0, 255)
+	g = utils.Clamp(g, 0, 255)
+	b = utils.Clamp(b, 0, 255)
+
+	return
 }
 
 // processImages 画像処理のメインフロー
