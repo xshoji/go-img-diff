@@ -6,7 +6,7 @@ import (
 	"image/draw"
 	"time"
 
-	"github.com/user/go-img-diff/utils"
+	"github.com/xshoji/go-img-diff/utils"
 )
 
 // GenerateDiffImage は位置ずれを考慮した差分画像を生成する

@@ -5,7 +5,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/user/go-img-diff/utils"
+	"github.com/xshoji/go-img-diff/utils"
 )
 
 // mergeOverlappingRectangles は重なり合う矩形を連結して大きな矩形にする

@@ -1,4 +1,4 @@
-module github.com/user/go-img-diff
+module github.com/xshoji/go-img-diff
 
 go 1.23
 

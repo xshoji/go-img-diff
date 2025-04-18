@@ -7,7 +7,7 @@ This tool is implemented with zero external dependencies and does not rely on Op
 ## Usage
 
 ```bash
-go-diff-image2 -i1 original_image.png -i2 compared_image.png -o diff_image.png [options]
+imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options]
 ```
 
 ## Options

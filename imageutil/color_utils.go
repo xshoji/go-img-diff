@@ -4,7 +4,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/user/go-img-diff/utils"
+	"github.com/xshoji/go-img-diff/utils"
 )
 
 // colorDifference は2つの色の間の差（ユークリッド距離）を計算する

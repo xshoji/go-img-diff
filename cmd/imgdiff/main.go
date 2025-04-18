@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/user/go-img-diff/config"
-	"github.com/user/go-img-diff/imageutil"
-	"github.com/user/go-img-diff/utils"
+	"github.com/xshoji/go-img-diff/config"
+	"github.com/xshoji/go-img-diff/imageutil"
+	"github.com/xshoji/go-img-diff/utils"
 )
 
 // 定数定義

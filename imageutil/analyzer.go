@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/go-img-diff/config"
-	"github.com/user/go-img-diff/utils"
+	"github.com/xshoji/go-img-diff/config"
+	"github.com/xshoji/go-img-diff/utils"
 )
 
 // DiffAnalyzer 画像差分の解析とビジュアル化を行う構造体

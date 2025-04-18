@@ -3,7 +3,7 @@ package imageutil
 import (
 	"image"
 
-	"github.com/user/go-img-diff/utils"
+	"github.com/xshoji/go-img-diff/utils"
 )
 
 // calculateSimilarityScore は2つの画像間の類似度を計算する
