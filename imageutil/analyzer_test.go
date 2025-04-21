@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/xshoji/go-img-diff/config"
+	"github.com/xshoji/go-img-diff/utils"
 )
 
 // createTestImage は指定されたサイズとパターンでテスト画像を作成する
@@ -22,7 +23,8 @@ func createTestImage(width, height int, fill color.RGBA) *image.RGBA {
 }
 
 // createTestImageWithOffset はオフセットを持つテスト画像ペアを作成する
-// 2つ目の画像はオフセット分ずらして同じパターンを描画
+// img1: 基準となる画像
+// img2: img1をoffsetX, offsetY分だけずらした画像
 func createTestImageWithOffset(width, height, offsetX, offsetY int) (*image.RGBA, *image.RGBA) {
 	// 元画像（黒地に白い丸を描画）
 	img1 := createTestImage(width, height, color.RGBA{0, 0, 0, 255})
@@ -31,39 +33,87 @@ func createTestImageWithOffset(width, height, offsetX, offsetY int) (*image.RGBA
 	centerX, centerY := width/2, height/2
 	radius := width / 8
 
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			dx := x - centerX
-			dy := y - centerY
-			if dx*dx+dy*dy < radius*radius {
-				img1.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
-			}
-		}
-	}
+	// img1に円を描画
+	drawCircle(img1, centerX, centerY, radius, color.RGBA{255, 255, 255, 255})
 
 	// 2つ目の画像（オフセット分ずらした同じパターン）
 	img2 := createTestImage(width, height, color.RGBA{0, 0, 0, 255})
 
-	// オフセット分ずらして同じ丸を描画
-	// 正しいオフセット方向に修正: 画像Bを右下にずらすとオフセットは正の値になる
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			// オフセットの適用方向を反転
-			srcX := x + offsetX // - から + に変更
-			srcY := y + offsetY // - から + に変更
-			if srcX >= 0 && srcX < width && srcY >= 0 && srcY < height {
-				dx := srcX - centerX
-				dy := srcY - centerY
-				if dx*dx+dy*dy < radius*radius {
-					img2.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
-				}
-			}
-		}
-	}
+	// 注意: 画像処理のオフセット検出では、img2上での座標(x,y)が
+	// img1上のどの座標(x+offsetX, y+offsetY)に対応するかを求める
+	// したがって、img2にパターンを描画する際は逆方向に-offsetXと-offsetYを適用する
+	offsetCenterX := centerX - offsetX
+	offsetCenterY := centerY - offsetY
+	drawCircle(img2, offsetCenterX, offsetCenterY, radius, color.RGBA{255, 255, 255, 255})
 
 	return img1, img2
 }
 
+// 描画用ヘルパー関数
+// drawCircle は指定された位置に円を描画
+func drawCircle(img *image.RGBA, centerX, centerY, radius int, c color.RGBA) {
+	for dy := -radius; dy <= radius; dy++ {
+		for dx := -radius; dx <= radius; dx++ {
+			if dx*dx+dy*dy <= radius*radius {
+				x, y := centerX+dx, centerY+dy
+				if x >= 0 && y >= 0 && x < img.Bounds().Dx() && y < img.Bounds().Dy() {
+					img.SetRGBA(x, y, c)
+				}
+			}
+		}
+	}
+}
+
+// drawRect は指定された位置に長方形を描画
+func drawRect(img *image.RGBA, x, y, width, height int, c color.RGBA) {
+	for dy := 0; dy < height; dy++ {
+		for dx := 0; dx < width; dx++ {
+			nx, ny := x+dx, y+dy
+			if nx >= 0 && ny >= 0 && nx < img.Bounds().Dx() && ny < img.Bounds().Dy() {
+				img.SetRGBA(nx, ny, c)
+			}
+		}
+	}
+}
+
+// drawTriangle は指定された位置に三角形を描画
+func drawTriangle(img *image.RGBA, centerX, centerY, size int, c color.RGBA) {
+	for dy := 0; dy < size; dy++ {
+		width := 2 * dy
+		startX := centerX - dy
+		y := centerY - size + dy
+
+		for dx := 0; dx <= width; dx++ {
+			x := startX + dx
+			if x >= 0 && y >= 0 && x < img.Bounds().Dx() && y < img.Bounds().Dy() {
+				img.SetRGBA(x, y, c)
+			}
+		}
+	}
+}
+
+// drawCross は指定された位置に十字を描く
+func drawCross(img *image.RGBA, centerX, centerY, size int) {
+	bounds := img.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	for dy := -size; dy <= size; dy++ {
+		y := centerY + dy
+		if y >= 0 && y < height {
+			for dx := -size; dx <= size; dx++ {
+				x := centerX + dx
+				if x >= 0 && x < width {
+					if dx == 0 || dy == 0 {
+						img.SetRGBA(x, y, color.RGBA{0, 0, 0, 255})
+					}
+				}
+			}
+		}
+	}
+}
+
+// TestDiffAnalyzer_NewDiffAnalyzer は初期化のテスト
 func TestDiffAnalyzer_NewDiffAnalyzer(t *testing.T) {
 	cfg := config.NewDefaultConfig()
 	analyzer := NewDiffAnalyzer(cfg)
@@ -77,6 +127,7 @@ func TestDiffAnalyzer_NewDiffAnalyzer(t *testing.T) {
 	}
 }
 
+// TestDiffAnalyzer_CalculateSimilarityScore は類似スコア計算のテスト
 func TestDiffAnalyzer_CalculateSimilarityScore(t *testing.T) {
 	// 基本設定
 	cfg := config.NewDefaultConfig()
@@ -137,6 +188,7 @@ func TestDiffAnalyzer_CalculateSimilarityScore(t *testing.T) {
 	}
 }
 
+// TestDiffAnalyzer_FindBestAlignment はオフセット検出のテスト
 func TestDiffAnalyzer_FindBestAlignment(t *testing.T) {
 	// 基本設定
 	cfg := config.NewDefaultConfig()
@@ -201,12 +253,13 @@ func TestDiffAnalyzer_FindBestAlignment(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// 正しいオフセット方向でテスト画像を作成
 			img1, img2 := createTestImageWithOffset(tc.width, tc.height, tc.offsetX, tc.offsetY)
 
 			foundOffsetX, foundOffsetY := analyzer.FindBestAlignment(img1, img2)
 
 			// 許容誤差内かチェック
-			if abs(foundOffsetX-tc.expectedOffsetX) > tc.threshold || abs(foundOffsetY-tc.expectedOffsetY) > tc.threshold {
+			if utils.AbsInt(foundOffsetX-tc.expectedOffsetX) > tc.threshold || utils.AbsInt(foundOffsetY-tc.expectedOffsetY) > tc.threshold {
 				t.Errorf("Expected offset around (%d, %d), got (%d, %d)",
 					tc.expectedOffsetX, tc.expectedOffsetY, foundOffsetX, foundOffsetY)
 			}
@@ -223,13 +276,14 @@ func TestDiffAnalyzer_FindBestAlignment(t *testing.T) {
 		foundOffsetX, foundOffsetY := analyzer.FindBestAlignment(img1, img2)
 
 		// 高速モードでも合理的な範囲で正確に検出できるか
-		if abs(foundOffsetX-5) > 1 || abs(foundOffsetY-3) > 1 {
+		if utils.AbsInt(foundOffsetX-5) > 1 || utils.AbsInt(foundOffsetY-3) > 1 {
 			t.Errorf("Fast mode failed to detect correct offset. Expected around (5, 3), got (%d, %d)",
 				foundOffsetX, foundOffsetY)
 		}
 	})
 }
 
+// TestDiffAnalyzer_SearchBestOffsetInRange は部分検索のテスト
 func TestDiffAnalyzer_SearchBestOffsetInRange(t *testing.T) {
 	cfg := config.NewDefaultConfig()
 	cfg.SamplingRate = 2
@@ -248,22 +302,19 @@ func TestDiffAnalyzer_SearchBestOffsetInRange(t *testing.T) {
 			foundX, foundY, score)
 	}
 
-	// オフセットが範囲外のテスト方法を変更
-	// 実際のアルゴリズムでは、オフセット範囲外でも高い類似度が出ることがあるため、
-	// 代わりに範囲内の最適オフセットと範囲外の最適オフセットのどちらが良いかを確認
-	bestX, bestY := 3, 2
-	rangeScore := analyzer.calculateSimilarityScore(img1, img2, bestX, bestY)
-	outRangeScore := analyzer.calculateSimilarityScore(img1, img2, -3, -2) // 意図的に逆符号のオフセット
+	// オフセットが範囲外の場合の検証
+	bestScore := analyzer.calculateSimilarityScore(img1, img2, foundX, foundY)
+	wrongScore := analyzer.calculateSimilarityScore(img1, img2, -foundX, -foundY) // 逆方向のオフセット
 
-	if outRangeScore >= rangeScore {
-		t.Errorf("Expected in-range offset to have better score than out-range offset, but got out:%.4f >= in:%.4f",
-			outRangeScore, rangeScore)
+	if wrongScore >= bestScore {
+		t.Errorf("Expected correct offset to have better score than incorrect offset, but got wrong:%.4f >= best:%.4f",
+			wrongScore, bestScore)
 	}
 }
 
-// 特殊なテストケースを修正 - より明確な形で比較するテストに変更
-func TestDiffAnalyzer_CompletelyOffsetImages(t *testing.T) {
-	// テストの設定を調整
+// TestDiffAnalyzer_ComplexPatterns は複雑なパターンでのオフセット検出テスト
+func TestDiffAnalyzer_ComplexPatterns(t *testing.T) {
+	// テストの設定
 	cfg := config.NewDefaultConfig()
 	cfg.SamplingRate = 1 // ピクセル単位の精度
 	cfg.MaxOffset = 40   // より大きなオフセットを探索可能に
@@ -272,164 +323,77 @@ func TestDiffAnalyzer_CompletelyOffsetImages(t *testing.T) {
 	cfg.FastMode = false // より精密な検索を行う
 	analyzer := NewDiffAnalyzer(cfg)
 
-	// より明確で特徴的なパターンを作成
-	width, height := 200, 200 // より大きなサイズで
+	// サイズ定義
+	width, height := 200, 200
 
-	// テスト1: 単純なパターンシフト - 黒地に白い正方形を描画
-	img1 := createTestImage(width, height, color.RGBA{0, 0, 0, 255}) // 黒背景
-	img2 := createTestImage(width, height, color.RGBA{0, 0, 0, 255}) // 黒背景
+	t.Run("simple_square_pattern", func(t *testing.T) {
+		// 黒地に白い正方形パターンの画像ペア
+		img1 := createTestImage(width, height, color.RGBA{0, 0, 0, 255})
+		img2 := createTestImage(width, height, color.RGBA{0, 0, 0, 255})
 
-	// img1の中央に大きな白い正方形を描画
-	squareSize := 50
-	startX := width/2 - squareSize/2
-	startY := height/2 - squareSize/2
+		// img1の中央に白い正方形を描画
+		squareSize := 50
+		startX := width/2 - squareSize/2
+		startY := height/2 - squareSize/2
+		drawRect(img1, startX, startY, squareSize, squareSize, color.RGBA{255, 255, 255, 255})
 
-	for y := startY; y < startY+squareSize; y++ {
-		for x := startX; x < startX+squareSize; x++ {
-			img1.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
+		// 明確なオフセットをつけてimg2にも同じ正方形を描画
+		expectedOffsetX, expectedOffsetY := 25, 25
+		drawRect(img2, startX-expectedOffsetX, startY-expectedOffsetY, squareSize, squareSize, color.RGBA{255, 255, 255, 255})
+
+		// オフセット検出のテスト
+		foundX, foundY := analyzer.FindBestAlignment(img1, img2)
+
+		// 検証（許容誤差1ピクセル）
+		if utils.AbsInt(foundX-expectedOffsetX) > 1 || utils.AbsInt(foundY-expectedOffsetY) > 1 {
+			t.Errorf("Simple pattern test failed: expected offset (%d, %d), got (%d, %d)",
+				expectedOffsetX, expectedOffsetY, foundX, foundY)
 		}
-	}
 
-	// 明確なオフセットをつけてimg2にも同じ正方形を描画
-	preciseOffsetX := 25
-	preciseOffsetY := 25
-
-	for y := startY - preciseOffsetY; y < startY+squareSize-preciseOffsetY; y++ {
-		for x := startX - preciseOffsetX; x < startX+squareSize-preciseOffsetX; x++ {
-			if x >= 0 && y >= 0 && x < width && y < height {
-				img2.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
-			}
-		}
-	}
-
-	// オフセット検出のテスト - FindBestAlignmentを使用
-	foundX, foundY := analyzer.FindBestAlignment(img1, img2)
-
-	// 期待値との比較（許容誤差はより小さく）
-	offsetThreshold := 1
-	if abs(foundX-preciseOffsetX) > offsetThreshold || abs(foundY-preciseOffsetY) > offsetThreshold {
-		t.Errorf("Simple pattern test failed: expected offset (%d, %d), got (%d, %d)",
-			preciseOffsetX, preciseOffsetY, foundX, foundY)
-	} else {
-		// 検出成功の場合はスコアも確認
+		// スコア比較による検証
 		zeroScore := analyzer.calculateSimilarityScore(img1, img2, 0, 0)
 		bestScore := analyzer.calculateSimilarityScore(img1, img2, foundX, foundY)
-
-		// 最適なオフセットでは明らかに高いスコアになるはず
 		if bestScore <= zeroScore {
 			t.Errorf("Expected better score at correct offset: zero=%.4f, best=%.4f",
 				zeroScore, bestScore)
 		}
-	}
+	})
 
-	// テスト2: より複雑なパターン - 複数の形状を持つ画像
-	img3 := createTestImage(width, height, color.RGBA{255, 255, 255, 255}) // 白背景
-	img4 := createTestImage(width, height, color.RGBA{255, 255, 255, 255}) // 白背景
+	t.Run("complex_patterns", func(t *testing.T) {
+		// 複雑なパターンを持つ画像ペア
+		img1 := createTestImage(width, height, color.RGBA{255, 255, 255, 255})
+		img2 := createTestImage(width, height, color.RGBA{255, 255, 255, 255})
 
-	// img3に特徴的なパターンを描画
-	// 1. 左上に四角形
-	drawRect(img3, 30, 30, 40, 40, color.RGBA{0, 0, 0, 255})
-	// 2. 右上に円
-	drawCircle(img3, width-50, 50, 20, color.RGBA{0, 0, 0, 255})
-	// 3. 左下に三角形
-	drawTriangle(img3, 30, height-30, 40, color.RGBA{0, 0, 0, 255})
-	// 4. 右下に十字
-	drawCross(img3, width-50, height-50, 15)
+		// img1に複数の形状を描画
+		drawRect(img1, 30, 30, 40, 40, color.RGBA{0, 0, 0, 255})
+		drawCircle(img1, width-50, 50, 20, color.RGBA{0, 0, 0, 255})
+		drawTriangle(img1, 30, height-30, 40, color.RGBA{0, 0, 0, 255})
+		drawCross(img1, width-50, height-50, 15)
 
-	// 実際のオフセット適用（img3→img4への変換を基準）
-	// 左方向へ15ピクセル、下方向へ10ピクセル移動させる
-	physicOffsetX := -15
-	physicOffsetY := 10
+		// 明確なオフセットをつけてimg2にも同じパターンを描画
+		offsetX, offsetY := -15, 10
+		drawRect(img2, 30+offsetX, 30+offsetY, 40, 40, color.RGBA{0, 0, 0, 255})
+		drawCircle(img2, width-50+offsetX, 50+offsetY, 20, color.RGBA{0, 0, 0, 255})
+		drawTriangle(img2, 30+offsetX, height-30+offsetY, 40, color.RGBA{0, 0, 0, 255})
+		drawCross(img2, width-50+offsetX, height-50+offsetY, 15)
 
-	// img4に同じパターンをオフセットしてコピー
-	drawRect(img4, 30+physicOffsetX, 30+physicOffsetY, 40, 40, color.RGBA{0, 0, 0, 255})
-	drawCircle(img4, width-50+physicOffsetX, 50+physicOffsetY, 20, color.RGBA{0, 0, 0, 255})
-	drawTriangle(img4, 30+physicOffsetX, height-30+physicOffsetY, 40, color.RGBA{0, 0, 0, 255})
-	drawCross(img4, width-50+physicOffsetX, height-50+physicOffsetY, 15)
+		// オフセット検出
+		expectedDetectedX := -offsetX // 検出では逆符号になる
+		expectedDetectedY := -offsetY // 検出では逆符号になる
+		detectedX, detectedY := analyzer.FindBestAlignment(img1, img2)
 
-	// オフセット検出テスト
-	detectedX, detectedY := analyzer.FindBestAlignment(img3, img4)
-
-	// 重要: 注意！アルゴリズムが検出するオフセットは実際の物理的なオフセットとは符号が逆になる
-	// 実装上、img4→img3へのマッピングを表すオフセットが返されるため
-	expectedDetectedX := -physicOffsetX // 逆符号にする
-	expectedDetectedY := -physicOffsetY // 逆符号にする
-
-	// 期待値との比較
-	offsetThreshold = 1
-	if abs(detectedX-expectedDetectedX) > offsetThreshold || abs(detectedY-expectedDetectedY) > offsetThreshold {
-		t.Errorf("Complex pattern test failed: expected detection (%d, %d), got (%d, %d)",
-			expectedDetectedX, expectedDetectedY, detectedX, detectedY)
-	}
-
-	// 追加検証 - これは逆方向のオフセットでより明確に確認するためのテスト
-	testScore1 := analyzer.calculateSimilarityScore(img3, img4, detectedX, detectedY)   // 検出したオフセット
-	testScore2 := analyzer.calculateSimilarityScore(img3, img4, -detectedX, -detectedY) // 逆オフセット
-	if testScore2 >= testScore1 {
-		t.Errorf("Detected offset (%d, %d) should give better score than its inverse: %.4f vs %.4f",
-			detectedX, detectedY, testScore1, testScore2)
-	}
-}
-
-// drawRect は指定された位置に長方形を描画
-func drawRect(img *image.RGBA, x, y, width, height int, c color.RGBA) {
-	for dy := 0; dy < height; dy++ {
-		for dx := 0; dx < width; dx++ {
-			nx, ny := x+dx, y+dy
-			if nx >= 0 && ny >= 0 && nx < img.Bounds().Dx() && ny < img.Bounds().Dy() {
-				img.SetRGBA(nx, ny, c)
-			}
+		// 検証（許容誤差1ピクセル）
+		if utils.AbsInt(detectedX-expectedDetectedX) > 1 || utils.AbsInt(detectedY-expectedDetectedY) > 1 {
+			t.Errorf("Complex pattern test failed: expected detection (%d, %d), got (%d, %d)",
+				expectedDetectedX, expectedDetectedY, detectedX, detectedY)
 		}
-	}
-}
 
-// drawCircle は指定された位置に円を描画
-func drawCircle(img *image.RGBA, centerX, centerY, radius int, c color.RGBA) {
-	for dy := -radius; dy <= radius; dy++ {
-		for dx := -radius; dx <= radius; dx++ {
-			if dx*dx+dy*dy <= radius*radius {
-				x, y := centerX+dx, centerY+dy
-				if x >= 0 && y >= 0 && x < img.Bounds().Dx() && y < img.Bounds().Dy() {
-					img.SetRGBA(x, y, c)
-				}
-			}
+		// スコア比較による検証
+		correctScore := analyzer.calculateSimilarityScore(img1, img2, detectedX, detectedY)
+		wrongScore := analyzer.calculateSimilarityScore(img1, img2, -detectedX, -detectedY)
+		if wrongScore >= correctScore {
+			t.Errorf("Detected offset (%d, %d) should give better score than its inverse: %.4f vs %.4f",
+				detectedX, detectedY, correctScore, wrongScore)
 		}
-	}
-}
-
-// drawTriangle は指定された位置に三角形を描画
-func drawTriangle(img *image.RGBA, centerX, centerY, size int, c color.RGBA) {
-	for dy := 0; dy < size; dy++ {
-		width := 2 * dy
-		startX := centerX - dy
-		y := centerY - size + dy
-
-		for dx := 0; dx <= width; dx++ {
-			x := startX + dx
-			if x >= 0 && y >= 0 && x < img.Bounds().Dx() && y < img.Bounds().Dy() {
-				img.SetRGBA(x, y, c)
-			}
-		}
-	}
-}
-
-// drawCross は指定された位置に十字を描く補助関数
-func drawCross(img *image.RGBA, centerX, centerY, size int) {
-	bounds := img.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
-
-	for dy := -size; dy <= size; dy++ {
-		y := centerY + dy
-		if y >= 0 && y < height {
-			for dx := -size; dx <= size; dx++ {
-				x := centerX + dx
-				if x >= 0 && x < width {
-					if dx == 0 || dy == 0 {
-						img.SetRGBA(x, y, color.RGBA{0, 0, 0, 255})
-					}
-				}
-			}
-		}
-	}
+	})
 }

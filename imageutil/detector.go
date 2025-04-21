@@ -60,14 +60,6 @@ func (da *DiffAnalyzer) GenerateDiffImage(imgA, imgB image.Image, offsetX, offse
 	return result
 }
 
-// abs は整数の絶対値を返す
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
 // detectDiffRegions は2つの画像の差分領域を検出する
 func (da *DiffAnalyzer) detectDiffRegions(imgA, imgB image.Image, offsetX, offsetY int) []image.Rectangle {
 	startTime := time.Now()

@@ -290,24 +290,3 @@ func TestGenerateDiffImage(t *testing.T) {
 	// 差分画像の内容を詳細にテストするのは複雑なため、
 	// 基本的な機能が動作することだけを確認（エラーが発生しないこと）
 }
-
-// abs関数のテスト
-func TestAbs(t *testing.T) {
-	testCases := []struct {
-		input    int
-		expected int
-	}{
-		{5, 5},
-		{-5, 5},
-		{0, 0},
-		{-100, 100},
-		{100, 100},
-	}
-
-	for _, tc := range testCases {
-		result := abs(tc.input)
-		if result != tc.expected {
-			t.Errorf("abs(%d) = %d, want %d", tc.input, result, tc.expected)
-		}
-	}
-}
