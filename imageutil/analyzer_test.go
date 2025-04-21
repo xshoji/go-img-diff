@@ -1,3 +1,5 @@
+//go:build !light_test_only
+
 package imageutil
 
 import (

@@ -148,6 +148,17 @@ You can make the difference more noticeable by adding a color tint to the origin
 By combining these parameters, you can finely adjust the visibility of the differences.
 
 
+## Unittest
+
+```
+# All tests
+go test ./...
+
+# Light tests only
+go test -tags="light_test_only" ./...
+```
+
+
 ## Release
 
 Release flow of this repository is integrated with github action.
