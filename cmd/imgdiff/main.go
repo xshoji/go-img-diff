@@ -64,6 +64,9 @@ var (
 	optionTintColor        = flag.String("tc", "255,0,0", "Tint color as R,G,B (0-255 for each value)")           // 新しい統合オプション
 	optionTintStrength     = flag.Float64("ts", 0.05, "Tint strength (0.0=no tint, 1.0=full tint)")               // tint-strength → i (intensity)
 	optionTintTransparency = flag.Float64("tw", 0.2, "Transparency level for tint (0.0=opaque, 1.0=transparent)") // tint-alpha → w (weight)
+
+	// 差分検出時に終了ステータス1で終了するオプション
+	optionExitOnDiff = flag.Bool("e", false, "Exit with status code 1 if differences are found (does not save diff image)")
 )
 
 func init() {
@@ -106,7 +109,8 @@ func validateRequiredOptions() error {
 	if *optionImageInput2 == "" {
 		missingOptions = append(missingOptions, "b")
 	}
-	if *optionOutput == "" {
+	// exitOnDiffが指定されている場合は出力ファイルは不要
+	if *optionOutput == "" && !*optionExitOnDiff {
 		missingOptions = append(missingOptions, "o")
 	}
 	if len(missingOptions) > 0 {
@@ -203,9 +207,15 @@ func processImages(cfg *config.AppConfig) error {
 	checkImageDimensions(imageA, imageB)
 
 	// 3. 差分検出と画像生成
-	diffImage, err := detectDifferences(imageA, imageB, cfg)
+	diffImage, hasDiff, err := detectDifferences(imageA, imageB, cfg)
 	if err != nil {
 		return err
+	}
+
+	// 差分があり、exitOnDiffオプションが有効な場合は早期終了
+	if hasDiff && *optionExitOnDiff {
+		fmt.Println("[INFO] Differences detected. Exiting with status code 1.")
+		os.Exit(1)
 	}
 
 	// 4. 差分画像を保存
@@ -252,7 +262,7 @@ func checkImageDimensions(imageA, imageB image.Image) {
 }
 
 // detectDifferences は画像の差分を検出して差分画像を生成する
-func detectDifferences(imageA, imageB image.Image, cfg *config.AppConfig) (image.Image, error) {
+func detectDifferences(imageA, imageB image.Image, cfg *config.AppConfig) (image.Image, bool, error) {
 	// 差分分析器を生成
 	diffAnalyzer := imageutil.NewDiffAnalyzer(cfg)
 
@@ -260,8 +270,11 @@ func detectDifferences(imageA, imageB image.Image, cfg *config.AppConfig) (image
 	offsetX, offsetY := diffAnalyzer.FindBestAlignment(imageA, imageB)
 	fmt.Printf("Detected offset: (%d, %d)\n", offsetX, offsetY)
 
+	// 差分があるかどうかを検出
+	hasDiff := diffAnalyzer.HasDifferences(imageA, imageB, offsetX, offsetY)
+
 	// 検出したオフセットに基づいて差分画像を生成
-	return diffAnalyzer.GenerateDiffImage(imageA, imageB, offsetX, offsetY), nil
+	return diffAnalyzer.GenerateDiffImage(imageA, imageB, offsetX, offsetY), hasDiff, nil
 }
 
 // customizeHelpMessage ヘルプメッセージの表示形式をカスタマイズする

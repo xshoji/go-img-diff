@@ -57,3 +57,19 @@ func ClampFloat64(value, min, max float64) float64 {
 	}
 	return value
 }
+
+// MaxUint32 は2つのuint32値の大きい方を返す
+func MaxUint32(a, b uint32) uint32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// AbsDiff は2つのuint32値の絶対差を返す
+func AbsDiff(a, b uint32) uint32 {
+	if a > b {
+		return a - b
+	}
+	return b - a
+}
