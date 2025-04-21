@@ -106,3 +106,15 @@ go test -tags="light_test_only" ./...
 
 The release flow for this repository is automated with GitHub Actions.
 Pushing Git tags triggers the release job.
+
+```
+# Release
+git tag v0.0.2 && git push --tags
+
+
+# Delete tag
+echo "v0.0.1" |xargs -I{} bash -c "git tag -d {} && git push origin :{}"
+
+# Delete tag and recreate new tag and push
+echo "v0.0.2" |xargs -I{} bash -c "git tag -d {} && git push origin :{}; git tag {} -m \"Release beta version.\"; git push --tags"
+```
