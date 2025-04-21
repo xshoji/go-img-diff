@@ -2,9 +2,9 @@
 
 > **Note**: This repository contains code that was largely generated with the assistance of GitHub Copilot (Claude 3.7 Sonnet).
 
-A tool to detect and visualize differences between two images. It automatically detects positional deviations in images, performs optimal alignment, and highlights differences with red borders. It can also overlay the original image with colored transparency within the difference regions.
+A tool to detect and visualize differences between images. It automatically detects positional deviations, performs optimal alignment, and highlights differences with red borders. It can also overlay the original image with colored transparency within the difference regions.
 
-This tool is implemented with zero external dependencies and does not rely on OpenCV or any other image processing libraries. **It uses only the standard Go libraries for image processing**.
+This tool is implemented with **zero external dependencies and uses only the standard Go libraries for image processing**.
 
 ---
 
@@ -34,121 +34,65 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
 ### Misalignment Detection Settings
 
 - `-m` : Maximum offset (in pixels) (default: 10)
-  - Search range for image alignment. Larger values increase processing time but can detect larger misalignments.
+  - Search range for image alignment. Larger values detect greater misalignments but increase processing time.
 
 ### Difference Detection Settings
 
 - `-d` : Color difference threshold (0-255) (default: 30)
-  - Lowering the threshold detects smaller differences; raising it detects only larger differences.
+  - Lower values detect smaller differences; higher values detect only larger differences.
+  
+- `-e` : Exit with status code 1 if differences are found (default: false)
+  - When enabled, the program will exit immediately after detecting differences without saving the diff image
 
 ### Speedup Settings
 
 - `-s` : Sampling rate (default: 4)
-  - 1=all pixels, 2=1/4 of pixels, 4=1/16 of pixels are compared. Increasing the value speeds up processing but reduces accuracy.
+  - 1=all pixels, 2=1/4 of pixels, 4=1/16 of pixels are compared. Higher values speed up processing but reduce accuracy.
 
 - `-p` : Enable precise mode (default: false)
-  - Disables the default fast mode for more accurate comparison. Use this when accuracy is more important than speed.
+  - Disables the default fast mode for more accurate comparison.
 
 ### Display Settings
 
-- `-od` : Disable transparent overlay of the first image in diff areas (default: false)
-  - By default, original image is overlaid in difference areas. Use this flag to disable the overlay.
-
+- `-od` : Disable transparent overlay of the original image in diff areas (default: false)
 - `-ot` : Transparency of the original image (default: 0.95)
   - 0.0=completely opaque, 1.0=completely transparent
 
 - `-n` : Apply color tint to the transparent overlay (default: true)
-  - Makes the differences more noticeable by adding a color tint to the original image.
-
 - `-tc` : Tint color as R,G,B (default: "255,0,0")
-  - Specify the color of the tint in RGB format as a comma-separated string.
-
 - `-ts` : Tint strength (default: 0.05)
   - 0.0=no tint (original image as is), 1.0=tint only
-
 - `-tw` : Tint transparency (default: 0.2)
   - 0.0=completely opaque, 1.0=completely transparent
-  - Can be set separately from the original image transparency (`-ot`)
 
 ### Other
 
 - `-c` : Number of CPU cores to use (default: number of cores on the system)
 - `-v` : Display version information
 
-## Details of the MaxOffset (-m) Parameter
-
-The `-m` option specifies the maximum positional deviation (offset) detection range in pixels when comparing two images.
-
-Increasing the value:
-- Benefit: Increases the possibility of accurately aligning even largely shifted images.
-- Drawback: Significantly increases processing time (because the search range increases quadratically).
-- Drawback: Increases the possibility of false detections.
-
-Decreasing the value:
-- Benefit: Speeds up processing.
-- Benefit: Reduces false matches to locally similar areas.
-- Drawback: Makes it impossible to correctly align largely shifted images.
-
-## Details of the Sampling Rate (-s) Parameter
-
-The `-s` option specifies the sampling interval when comparing pixels.
-
-- `s=1`: Compare all pixels (most accurate but slowest)
-- `s=2`: Compare every other pixel (number of pixels to compare is reduced to 1/4)
-- `s=4`: Compare every 3 pixels (number of pixels to compare is reduced to 1/16)
-
-## Details of the Processing Mode Parameters
+## Processing Modes
 
 ### Fast Mode (Default)
 
-By default, the tool operates in fast mode with progressive sampling, which significantly reduces processing time for large images.
-
-In this mode, the overall position is first identified with coarse sampling, and then the accuracy is gradually improved with finer sampling. This approach is especially effective for high-resolution images.
+Uses progressive sampling to reduce processing time for large images. It first identifies the overall position with coarse sampling, then gradually improves accuracy with finer sampling.
 
 ### Precise Mode (-p)
 
-The `-p` option enables precise mode by disabling the default fast mode.
+Performs all comparisons at the specified sampling rate for maximum accuracy. This increases processing time but is useful when more accurate alignment is required.
 
-In precise mode, all comparisons are performed with the specified sampling rate without progressive optimization. This ensures maximum accuracy but increases processing time, especially for large images or when searching for large offsets.
+## Transparent Overlay Feature
 
-Use this mode when:
-- You need the most accurate alignment possible
-- Fast mode produces unsatisfactory results
-- You're analyzing small details in images
+Displays the original image with colored transparency in difference areas to make changes easier to see visually.
 
-## Transparent Overlay Display Function
-
-Using this function, the pixel information of the original image (the image specified with `-i1`) is displayed with colored transparency in the area where the difference is detected. This makes it easier to visually check what kind of changes have been made.
-
-### Basic Transparent Display
-
-- By default, transparent overlay is enabled
-- `-no`: Disable transparent overlay
-- `-ot=0.95` (default): 95% transparency of the original image
-
-### Tint Adjustment
-
-You can make the difference more noticeable by adding a color tint to the original image:
-
-- `-n=true` (default): Apply tint
-- `-n=false`: Do not apply tint; display with the original color as is
-- `-tc=255,0,0` (default): Red tint
+- Transparent overlay is enabled by default
+- `-od`: Disable transparent overlay
+- `-n=false`: No color tint applied
 - `-tc=0,0,255`: Blue tint
 - `-tc=255,255,0`: Yellow tint
 
-### Detailed Control of Tint and Transparency
+Combine parameters to fine-tune the visibility of differences.
 
-- `-ts=0.05` (default): Set the tint strength to 5%
-- `-ts=0.3`: Tint moderately (original image color remains strong)
-- `-ts=1.0`: Tint only (original image color does not remain)
-
-- `-tw=0.2` (default): Set the tint transparency to 20% (relatively clear)
-- `-ot=0.5 -tw=0.1`: Original image is translucent, tint is clear
-
-By combining these parameters, you can finely adjust the visibility of the differences.
-
-
-## Unittest
+## Unit Testing
 
 ```
 # All tests
@@ -158,20 +102,7 @@ go test ./...
 go test -tags="light_test_only" ./...
 ```
 
-
 ## Release
 
-Release flow of this repository is integrated with github action.
-Git tag pushing triggers release job.
-
-```
-# Release
-git tag v0.0.2 && git push --tags
-
-
-# Delete tag
-echo "v0.0.1" |xargs -I{} bash -c "git tag -d {} && git push origin :{}"
-
-# Delete tag and recreate new tag and push
-echo "v0.0.2" |xargs -I{} bash -c "git tag -d {} && git push origin :{}; git tag {} -m \"Release beta version.\"; git push --tags"
-```
+The release flow for this repository is automated with GitHub Actions.
+Pushing Git tags triggers the release job.
