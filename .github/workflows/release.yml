@@ -1,4 +1,4 @@
-name: goreleaser
+name: release
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v4  # v3からv4へアップデート
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       -
@@ -21,10 +21,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.23
-          cache: true  # 依存関係のキャッシュを有効化
+          cache: true
       -
         name: Run Tests
-        run: go test -v ./...  # リリース前にテストを実行
+        run: go test -v ./...
       -
         name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
@@ -32,8 +32,5 @@ jobs:
           version: latest
           args: release --clean
         env:
-          # environment-variables - GitHub Actions - GoReleaser https://goreleaser.com/ci/actions/#environment-variables
-          # i-3 - GitHub Actionsの使い方 | 純規の暇人趣味ブログ https://jyn.jp/github-actions-usage/#i-3
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # リリースノートの自動生成設定
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
