@@ -60,7 +60,7 @@ var (
 	optionTransparency = flag.Float64("ot", 0.95, "Transparency level for overlay (0.0=opaque, 1.0=transparent)") // alpha → p (percent)
 
 	// 色調設定
-	optionUseTint          = flag.Bool("n", true, "Apply color tint to overlay")                                  // tint → n (tint)
+	optionDisableTint      = flag.Bool("td", false, "Disable color tint on overlay")                              // tint disable
 	optionTintColor        = flag.String("tc", "255,0,0", "Tint color as R,G,B (0-255 for each value)")           // 新しい統合オプション
 	optionTintStrength     = flag.Float64("ts", 0.05, "Tint strength (0.0=no tint, 1.0=full tint)")               // tint-strength → i (intensity)
 	optionTintTransparency = flag.Float64("tw", 0.2, "Transparency level for tint (0.0=opaque, 1.0=transparent)") // tint-alpha → w (weight)
@@ -155,7 +155,7 @@ func createAppConfig() *config.AppConfig {
 		ShowTransparentOverlay: !*optionNoOverlay,
 		OverlayTransparency:    transparency,
 		OverlayTint:            color.RGBA{uint8(r), uint8(g), uint8(b), 255},
-		UseTint:                *optionUseTint,
+		UseTint:                !*optionDisableTint,
 		TintStrength:           tintStrength,
 		TintTransparency:       tintTransparency,
 	}

@@ -58,7 +58,7 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
 - `-ot` : Transparency of the original image (default: 0.95)
   - 0.0=completely opaque, 1.0=completely transparent
 
-- `-n` : Apply color tint to the transparent overlay (default: true)
+- `-td` : Disable color tint on the transparent overlay (default: false)
 - `-tc` : Tint color as R,G,B (default: "255,0,0")
 - `-ts` : Tint strength (default: 0.05)
   - 0.0=no tint (original image as is), 1.0=tint only
@@ -86,7 +86,7 @@ Displays the original image with colored transparency in difference areas to mak
 
 - Transparent overlay is enabled by default
 - `-od`: Disable transparent overlay
-- `-n=false`: No color tint applied
+- `-td`: Disable color tint
 - `-tc=0,0,255`: Blue tint
 - `-tc=255,255,0`: Yellow tint
 
