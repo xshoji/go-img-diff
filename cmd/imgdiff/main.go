@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 // 定数定義
 const (
 	UsageRequiredPrefix = "\u001B[33m(REQ)\u001B[0m "
+	UsageDummy          = "########"
 	TimeFormat          = "2006-01-02 15:04:05.0000 [MST]"
 )
 
@@ -29,49 +31,46 @@ const (
 var (
 	// コマンドオプション表示に関する設定
 	commandDescription      = "Image difference detection and visualization tool."
-	commandOptionFieldWidth = "12" // フィールド幅の推奨値: 一般的に12、ブール値のみの場合は5
+	commandOptionFieldWidth = 0
 
 	// 必須オプション
-	optionImageInput1 = flag.String("i1", "", UsageRequiredPrefix+"First image path")
-	optionImageInput2 = flag.String("i2", "", UsageRequiredPrefix+"Second image path")
-	optionOutput      = flag.String("o", "", UsageRequiredPrefix+"Output diff image path")
+	optionImageInput1 = defineFlagValue("i1", "input1", UsageRequiredPrefix+"First image path", "").(*string)
+	optionImageInput2 = defineFlagValue("i2", "input2", UsageRequiredPrefix+"Second image path", "").(*string)
+	optionOutput      = defineFlagValue("o", "output", UsageRequiredPrefix+"Output diff image path", "").(*string)
 
 	// 位置ずれ検出のための設定
-	optionMaxOffset = flag.Int("m", 10, "Maximum pixel offset to search for alignment")
+	optionMaxOffset = defineFlagValue("m", "max-offset", "Maximum pixel offset to search for alignment", 10).(*int)
 
 	// 閾値設定
-	optionThreshold = flag.Int("d", 30, "Color difference threshold (0-255)") // 'd' for 'difference threshold'
+	optionThreshold = defineFlagValue("d", "diff-threshold", "Color difference threshold (0-255)", 30).(*int)
 
 	// 並列処理のためのCPU数設定
-	optionNumCPU = flag.Int("c", runtime.NumCPU(), "Number of CPU cores to use for parallel processing")
+	optionNumCPU = defineFlagValue("c", "cpu", "Number of CPU cores to use for parallel processing", runtime.NumCPU()).(*int)
 
 	// サンプリング設定
-	optionSamplingRate = flag.Int("s", 4, "Sampling rate for pixel comparison (1=all pixels, 2=every other pixel, etc)")
+	optionSamplingRate = defineFlagValue("s", "sampling", "Sampling rate for pixel comparison (1=all pixels, 2=every other pixel, etc)", 4).(*int)
 
 	// 高速モード設定
-	// 高速モードはデフォルトで有効になっています。画像比較を高速化するため、
-	// 複数段階のサンプリングを適用し、最初に粗いサンプリングで大まかな位置合わせを行い、
-	// 次の段階でより細かいサンプリングで精度を高めます。
-	// 比較する画像が大きく、処理時間を短縮したい場合に特に効果的です。
-	optionPreciseMode = flag.Bool("p", false, "Enable precise mode (disables the default fast mode for more accurate comparison)")
+	optionPreciseMode = defineFlagValue("p", "precise", "Enable precise mode (disables the default fast mode for more accurate comparison)", false).(*bool)
 
 	// 透過表示の設定
-	optionNoOverlay    = flag.Bool("od", false, "Disable transparent overlay of the first image in diff areas")   // no overlay
-	optionTransparency = flag.Float64("ot", 0.95, "Transparency level for overlay (0.0=opaque, 1.0=transparent)") // alpha → p (percent)
+	optionNoOverlay    = defineFlagValue("od", "overlay-disable", "Disable transparent overlay of the first image in diff areas", false).(*bool)
+	optionTransparency = defineFlagValue("ot", "overlay-transparency", "Transparency level for overlay (0.0=opaque, 1.0=transparent)", 0.95).(*float64)
 
 	// 色調設定
-	optionDisableTint      = flag.Bool("td", false, "Disable color tint on overlay")                              // tint disable
-	optionTintColor        = flag.String("tc", "255,0,0", "Tint color as R,G,B (0-255 for each value)")           // 新しい統合オプション
-	optionTintStrength     = flag.Float64("ts", 0.05, "Tint strength (0.0=no tint, 1.0=full tint)")               // tint-strength → i (intensity)
-	optionTintTransparency = flag.Float64("tw", 0.2, "Transparency level for tint (0.0=opaque, 1.0=transparent)") // tint-alpha → w (weight)
+	optionDisableTint      = defineFlagValue("td", "tint-disable", "Disable color tint on overlay", false).(*bool)
+	optionTintColor        = defineFlagValue("tc", "tint-color", "Tint color as R,G,B (0-255 for each value)", "255,0,0").(*string)
+	optionTintStrength     = defineFlagValue("ts", "tint-strength", "Tint strength (0.0=no tint, 1.0=full tint)", 0.05).(*float64)
+	optionTintTransparency = defineFlagValue("tw", "tint-weight", "Transparency level for tint (0.0=opaque, 1.0=transparent)", 0.2).(*float64)
 
 	// 差分検出時に終了ステータス1で終了するオプション
-	optionExitOnDiff = flag.Bool("e", false, "Exit with status code 1 if differences are found (does not save diff image)")
+	optionExitOnDiff = defineFlagValue("e", "exit-on-diff", "Exit with status code 1 if differences are found (does not save diff image)", false).(*bool)
 )
 
 func init() {
 	// ヘルプメッセージのカスタマイズ
-	customizeHelpMessage()
+	//customizeHelpMessage()
+	customizeHelpMessage2(commandDescription, &commandOptionFieldWidth, new(bytes.Buffer))
 }
 
 func main() {
@@ -124,9 +123,12 @@ func validateRequiredOptions() error {
 func printFlagInfo() {
 	fmt.Printf("[ Command options ]\n")
 	flag.VisitAll(func(a *flag.Flag) {
-		fmt.Printf("  -%-30s %s\n",
-			fmt.Sprintf("%s %v", a.Name, a.Value),
-			strings.Trim(a.Usage, "\n"))
+		if a.Usage == UsageDummy {
+			return
+		}
+		fmt.Printf("  %-32s %s\n",
+			fmt.Sprintf("-%-2s, --%s %v", strings.Split(a.Usage, UsageDummy)[0], a.Name, a.Value),
+			strings.Trim(strings.Split(a.Usage, UsageDummy)[1], "\n"))
 	})
 	fmt.Printf("\n\n")
 }
@@ -277,6 +279,28 @@ func detectDifferences(imageA, imageB image.Image, cfg *config.AppConfig) (image
 	return diffAnalyzer.GenerateDiffImage(imageA, imageB, offsetX, offsetY), hasDiff, nil
 }
 
+// Helper function for flag
+func defineFlagValue(short, long, description string, defaultValue any) (f any) {
+	flagUsage := short + UsageDummy + description
+	switch v := defaultValue.(type) {
+	case string:
+		f = flag.String(short, "", UsageDummy)
+		flag.StringVar(f.(*string), long, v, flagUsage)
+	case int:
+		f = flag.Int(short, 0, UsageDummy)
+		flag.IntVar(f.(*int), long, v, flagUsage)
+	case bool:
+		f = flag.Bool(short, false, UsageDummy)
+		flag.BoolVar(f.(*bool), long, v, flagUsage)
+	case float64:
+		f = flag.Float64(short, 0.0, UsageDummy)
+		flag.Float64Var(f.(*float64), long, v, flagUsage)
+	default:
+		panic("unsupported flag type")
+	}
+	return
+}
+
 // customizeHelpMessage ヘルプメッセージの表示形式をカスタマイズする
 func customizeHelpMessage() {
 	b := new(bytes.Buffer)
@@ -285,7 +309,26 @@ func customizeHelpMessage() {
 	re := regexp.MustCompile(`[^,] +(-\S+)(?: (\S+))?\n*(\s+)(.*)\n`)
 	flag.Usage = func() {
 		_, _ = fmt.Fprint(flag.CommandLine.Output(), re.ReplaceAllStringFunc(usage, func(m string) string {
-			return fmt.Sprintf("  %-"+commandOptionFieldWidth+"s %s\n", re.FindStringSubmatch(m)[1]+" "+strings.TrimSpace(re.FindStringSubmatch(m)[2]), re.FindStringSubmatch(m)[4])
+			return fmt.Sprintf("  %-"+strconv.Itoa(commandOptionFieldWidth)+"s %s\n", re.FindStringSubmatch(m)[1]+" "+strings.TrimSpace(re.FindStringSubmatch(m)[2]), re.FindStringSubmatch(m)[4])
 		}))
 	}
+}
+
+func customizeHelpMessage2(description string, maxLength *int, buffer *bytes.Buffer) {
+	func() { flag.CommandLine.SetOutput(buffer); flag.Usage(); flag.CommandLine.SetOutput(os.Stderr) }()
+	usageOption := regexp.MustCompile("(-\\S+)( *\\S*)+\n*\\s+"+UsageDummy+"\n\\s*").ReplaceAllString(buffer.String(), "")
+	re := regexp.MustCompile("\\s(-\\S+)( *\\S*)( *\\S*)+\n\\s+(.+)")
+	usageFirst := strings.Replace(strings.Replace(strings.Split(usageOption, "\n")[0], ":", " [OPTIONS] [-h, --help]", -1), " of ", ": ", -1) + "\n\nDescription:\n  " + description + "\n\nOptions:\n"
+	usageOptions := re.FindAllString(usageOption, -1)
+	for _, v := range usageOptions {
+		*maxLength = max(*maxLength, len(re.ReplaceAllString(v, " -$1")+re.ReplaceAllString(v, "$2"))+2)
+	}
+	usageOptionsRep := make([]string, 0)
+	for _, v := range usageOptions {
+		usageOptionsRep = append(usageOptionsRep, fmt.Sprintf("  -%-2s,%-"+strconv.Itoa(*maxLength)+"s%s", strings.Split(re.ReplaceAllString(v, "$4"), UsageDummy)[0], re.ReplaceAllString(v, " -$1")+re.ReplaceAllString(v, "$2"), strings.Split(re.ReplaceAllString(v, "$4"), UsageDummy)[1]+"\n"))
+	}
+	sort.SliceStable(usageOptionsRep, func(i, j int) bool {
+		return strings.Count(usageOptionsRep[i], UsageRequiredPrefix) > strings.Count(usageOptionsRep[j], UsageRequiredPrefix)
+	})
+	flag.Usage = func() { _, _ = fmt.Fprint(flag.CommandLine.Output(), usageFirst+strings.Join(usageOptionsRep, "")) }
 }
