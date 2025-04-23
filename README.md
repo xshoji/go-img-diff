@@ -27,48 +27,47 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
 
 ### Required Options
 
-- `-i1` : Path to the original image
-- `-i2` : Path to the comparison image
-- `-o` : Path to the output diff image
+- `-i1`, `--input1` : Path to the original image
+- `-i2`, `--input2` : Path to the comparison image
+- `-o`, `--output` : Path to the output diff image
 
 ### Misalignment Detection Settings
 
-- `-m` : Maximum offset (in pixels) (default: 10)
+- `-m`, `--max-offset` : Maximum offset (in pixels) (default: 10)
   - Search range for image alignment. Larger values detect greater misalignments but increase processing time.
 
 ### Difference Detection Settings
 
-- `-d` : Color difference threshold (0-255) (default: 30)
+- `-d`, `--diff-threshold` : Color difference threshold (0-255) (default: 30)
   - Lower values detect smaller differences; higher values detect only larger differences.
   
-- `-e` : Exit with status code 1 if differences are found (default: false)
+- `-e`, `--exit-on-diff` : Exit with status code 1 if differences are found (default: false)
   - When enabled, the program will exit immediately after detecting differences without saving the diff image
 
 ### Speedup Settings
 
-- `-s` : Sampling rate (default: 4)
+- `-s`, `--sampling` : Sampling rate (default: 4)
   - 1=all pixels, 2=1/4 of pixels, 4=1/16 of pixels are compared. Higher values speed up processing but reduce accuracy.
 
-- `-p` : Enable precise mode (default: false)
+- `-p`, `--precise` : Enable precise mode (default: false)
   - Disables the default fast mode for more accurate comparison.
 
 ### Display Settings
 
-- `-od` : Disable transparent overlay of the original image in diff areas (default: false)
-- `-ot` : Transparency of the original image (default: 0.95)
+- `-od`, `--overlay-disable` : Disable transparent overlay of the original image in diff areas (default: false)
+- `-ot`, `--overlay-transparency` : Transparency of the original image (default: 0.95)
   - 0.0=completely opaque, 1.0=completely transparent
 
-- `-td` : Disable color tint on the transparent overlay (default: false)
-- `-tc` : Tint color as R,G,B (default: "255,0,0")
-- `-ts` : Tint strength (default: 0.05)
+- `-td`, `--tint-disable` : Disable color tint on the transparent overlay (default: false)
+- `-tc`, `--tint-color` : Tint color as R,G,B (default: "255,0,0")
+- `-ts`, `--tint-strength` : Tint strength (default: 0.05)
   - 0.0=no tint (original image as is), 1.0=tint only
-- `-tw` : Tint transparency (default: 0.2)
+- `-tw`, `--tint-weight` : Tint transparency (default: 0.2)
   - 0.0=completely opaque, 1.0=completely transparent
 
 ### Other
 
-- `-c` : Number of CPU cores to use (default: number of cores on the system)
-- `-v` : Display version information
+- `-c`, `--cpu` : Number of CPU cores to use (default: number of cores on the system)
 
 ## Processing Modes
 
@@ -76,7 +75,7 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
 
 Uses progressive sampling to reduce processing time for large images. It first identifies the overall position with coarse sampling, then gradually improves accuracy with finer sampling.
 
-### Precise Mode (-p)
+### Precise Mode (-p, --precise)
 
 Performs all comparisons at the specified sampling rate for maximum accuracy. This increases processing time but is useful when more accurate alignment is required.
 
