@@ -21,6 +21,9 @@
 go.work
 go.work.sum
 
+imgdiff
+main
+
 # env file
 .env
 
