@@ -104,17 +104,17 @@ func main() {
 func validateRequiredOptions() error {
 	var missingOptions []string
 	if *optionImageInput1 == "" {
-		missingOptions = append(missingOptions, "a")
+		missingOptions = append(missingOptions, "i1")
 	}
 	if *optionImageInput2 == "" {
-		missingOptions = append(missingOptions, "b")
+		missingOptions = append(missingOptions, "i2")
 	}
 	// exitOnDiffが指定されている場合は出力ファイルは不要
 	if *optionOutput == "" && !*optionExitOnDiff {
 		missingOptions = append(missingOptions, "o")
 	}
 	if len(missingOptions) > 0 {
-		return fmt.Errorf("\n[ERROR] Missing required option(s): %s\n",
+		return fmt.Errorf("[ERROR] Missing required option(s): %s",
 			strings.Join(missingOptions, ", "))
 	}
 	return nil
