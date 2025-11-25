@@ -1,14 +1,14 @@
 package main
 
 import (
-	"bytes"
 	_ "embed"
 	"flag"
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"os"
-	"regexp"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -22,57 +22,58 @@ import (
 
 // 定数定義
 const (
-	UsageRequiredPrefix = "\u001B[33m(REQ)\u001B[0m "
-	UsageDummy          = "########"
-	TimeFormat          = "2006-01-02 15:04:05.0000 [MST]"
+	Req        = "\u001B[33m(REQ)\u001B[0m "
+	UsageDummy = "########"
+	TimeFormat = "2006-01-02 15:04:05.0000 [MST]"
 )
 
 // アプリケーション設定とオプション
 var (
 	// コマンドオプション表示に関する設定
-	commandDescription      = "Image difference detection and visualization tool."
-	commandOptionFieldWidth = 0
+	commandDescription     = "Image difference detection and visualization tool."
+	commandOptionMaxLength = "32"
 
 	// 必須オプション
-	optionImageInput1 = defineFlagValue("i1", "input1", UsageRequiredPrefix+"First image path", "").(*string)
-	optionImageInput2 = defineFlagValue("i2", "input2", UsageRequiredPrefix+"Second image path", "").(*string)
-	optionOutput      = defineFlagValue("o", "output", UsageRequiredPrefix+"Output diff image path", "").(*string)
+	optionImageInput1 = defineFlagValue("i1", "input1", Req+"First image path", "", flag.String, flag.StringVar)
+	optionImageInput2 = defineFlagValue("i2", "input2", Req+"Second image path", "", flag.String, flag.StringVar)
+	optionOutput      = defineFlagValue("o", "output", Req+"Output diff image path", "", flag.String, flag.StringVar)
 
 	// 位置ずれ検出のための設定
-	optionMaxOffset = defineFlagValue("m", "max-offset", "Maximum pixel offset to search for alignment", 10).(*int)
+	optionMaxOffset = defineFlagValue("m", "max-offset", "Maximum pixel offset to search for alignment", 10, flag.Int, flag.IntVar)
 
 	// 閾値設定
-	optionThreshold = defineFlagValue("d", "diff-threshold", "Color difference threshold (0-255)", 30).(*int)
+	optionThreshold = defineFlagValue("d", "diff-threshold", "Color difference threshold (0-255)", 30, flag.Int, flag.IntVar)
 
 	// 並列処理のためのCPU数設定
-	optionNumCPU = defineFlagValue("c", "cpu", "Number of CPU cores to use for parallel processing", runtime.NumCPU()).(*int)
+	optionNumCPU = defineFlagValue("c", "cpu", "Number of CPU cores to use for parallel processing", runtime.NumCPU(), flag.Int, flag.IntVar)
 
 	// サンプリング設定
-	optionSamplingRate = defineFlagValue("s", "sampling", "Sampling rate for pixel comparison (1=all pixels, 2=every other pixel, etc)", 4).(*int)
+	optionSamplingRate = defineFlagValue("s", "sampling", "Sampling rate for pixel comparison (1=all pixels, 2=every other pixel, etc)", 4, flag.Int, flag.IntVar)
 
 	// 高速モード設定
-	optionPreciseMode = defineFlagValue("p", "precise", "Enable precise mode (disables the default fast mode for more accurate comparison)", false).(*bool)
+	optionPreciseMode = defineFlagValue("p", "precise", "Enable precise mode (disables the default fast mode for more accurate comparison)", false, flag.Bool, flag.BoolVar)
 
 	// 透過表示の設定
-	optionNoOverlay    = defineFlagValue("od", "overlay-disable", "Disable transparent overlay of the first image in diff areas", false).(*bool)
-	optionTransparency = defineFlagValue("ot", "overlay-transparency", "Transparency level for overlay (0.0=opaque, 1.0=transparent)", 0.95).(*float64)
+	optionNoOverlay    = defineFlagValue("od", "overlay-disable", "Disable transparent overlay of the first image in diff areas", false, flag.Bool, flag.BoolVar)
+	optionTransparency = defineFlagValue("ot", "overlay-transparency", "Transparency level for overlay (0.0=opaque, 1.0=transparent)", 0.95, flag.Float64, flag.Float64Var)
 
 	// 色調設定
-	optionDisableTint      = defineFlagValue("td", "tint-disable", "Disable color tint on overlay", false).(*bool)
-	optionTintColor        = defineFlagValue("tc", "tint-color", "Tint color as R,G,B (0-255 for each value)", "255,0,0").(*string)
-	optionTintStrength     = defineFlagValue("ts", "tint-strength", "Tint strength (0.0=no tint, 1.0=full tint)", 0.05).(*float64)
-	optionTintTransparency = defineFlagValue("tw", "tint-weight", "Transparency level for tint (0.0=opaque, 1.0=transparent)", 0.2).(*float64)
+	optionDisableTint      = defineFlagValue("td", "tint-disable", "Disable color tint on overlay", false, flag.Bool, flag.BoolVar)
+	optionTintColor        = defineFlagValue("tc", "tint-color", "Tint color as R,G,B (0-255 for each value)", "255,0,0", flag.String, flag.StringVar)
+	optionTintStrength     = defineFlagValue("ts", "tint-strength", "Tint strength (0.0=no tint, 1.0=full tint)", 0.05, flag.Float64, flag.Float64Var)
+	optionTintTransparency = defineFlagValue("tw", "tint-weight", "Transparency level for tint (0.0=opaque, 1.0=transparent)", 0.2, flag.Float64, flag.Float64Var)
 
 	// 差分検出時に終了ステータス1で終了するオプション
-	optionExitOnDiff = defineFlagValue("e", "exit-on-diff", "Exit with status code 1 if differences are found (does not save diff image)", false).(*bool)
+	optionExitOnDiff = defineFlagValue("e", "exit-on-diff", "Exit with status code 1 if differences are found (does not save diff image)", false, flag.Bool, flag.BoolVar)
 )
 
 func init() {
-	// ヘルプメッセージのカスタマイズ
-	//customizeHelpMessage()
-	customizeHelpMessage2(commandDescription, &commandOptionFieldWidth, new(bytes.Buffer))
+	// Customize the usage message
+	flag.Usage = customUsage(os.Stdout, commandDescription, commandOptionMaxLength)
 }
 
+// Build:
+// go build -ldflags="-s -w" -trimpath ./cmd/imgdiff
 func main() {
 	// コマンドライン引数の解析
 	flag.Parse()
@@ -85,7 +86,7 @@ func main() {
 	}
 
 	// 設定情報の表示
-	printFlagInfo()
+	fmt.Printf("[ Command options ]\n%s\n", getOptionsUsage(commandOptionMaxLength, true))
 
 	// 設定オブジェクトの作成
 	cfg := createAppConfig()
@@ -117,20 +118,6 @@ func validateRequiredOptions() error {
 			strings.Join(missingOptions, ", "))
 	}
 	return nil
-}
-
-// printFlagInfo 設定情報を表示
-func printFlagInfo() {
-	fmt.Printf("[ Command options ]\n")
-	flag.VisitAll(func(a *flag.Flag) {
-		if a.Usage == UsageDummy {
-			return
-		}
-		fmt.Printf("  %-32s %s\n",
-			fmt.Sprintf("-%-2s, --%s %v", strings.Split(a.Usage, UsageDummy)[0], a.Name, a.Value),
-			strings.Trim(strings.Split(a.Usage, UsageDummy)[1], "\n"))
-	})
-	fmt.Printf("\n\n")
 }
 
 // createAppConfig アプリケーション設定オブジェクトを作成
@@ -279,56 +266,50 @@ func detectDifferences(imageA, imageB image.Image, cfg *config.AppConfig) (image
 	return diffAnalyzer.GenerateDiffImage(imageA, imageB, offsetX, offsetY), hasDiff, nil
 }
 
+// =======================================
+// flag Utils
+// =======================================
+
 // Helper function for flag
-func defineFlagValue(short, long, description string, defaultValue any) (f any) {
+func defineFlagValue[T comparable](short, long, description string, defaultValue T, flagFunc func(name string, value T, usage string) *T, flagVarFunc func(p *T, name string, value T, usage string)) *T {
 	flagUsage := short + UsageDummy + description
-	switch v := defaultValue.(type) {
-	case string:
-		f = flag.String(short, "", UsageDummy)
-		flag.StringVar(f.(*string), long, v, flagUsage)
-	case int:
-		f = flag.Int(short, 0, UsageDummy)
-		flag.IntVar(f.(*int), long, v, flagUsage)
-	case bool:
-		f = flag.Bool(short, false, UsageDummy)
-		flag.BoolVar(f.(*bool), long, v, flagUsage)
-	case float64:
-		f = flag.Float64(short, 0.0, UsageDummy)
-		flag.Float64Var(f.(*float64), long, v, flagUsage)
-	default:
-		panic("unsupported flag type")
+	var zero T
+	if defaultValue != zero {
+		flagUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
 	}
-	return
+
+	f := flagFunc(long, defaultValue, flagUsage)
+	flagVarFunc(f, short, defaultValue, UsageDummy)
+	return f
 }
 
-// customizeHelpMessage ヘルプメッセージの表示形式をカスタマイズする
-func customizeHelpMessage() {
-	b := new(bytes.Buffer)
-	func() { flag.CommandLine.SetOutput(b); flag.Usage(); flag.CommandLine.SetOutput(os.Stderr) }()
-	usage := strings.Replace(strings.Replace(b.String(), ":", " [OPTIONS] [-h, --help]\n\nDescription:\n  "+commandDescription+"\n\nOptions:\n", 1), "Usage of", "Usage:", 1)
-	re := regexp.MustCompile(`[^,] +(-\S+)(?: (\S+))?\n*(\s+)(.*)\n`)
-	flag.Usage = func() {
-		_, _ = fmt.Fprint(flag.CommandLine.Output(), re.ReplaceAllStringFunc(usage, func(m string) string {
-			return fmt.Sprintf("  %-"+strconv.Itoa(commandOptionFieldWidth)+"s %s\n", re.FindStringSubmatch(m)[1]+" "+strings.TrimSpace(re.FindStringSubmatch(m)[2]), re.FindStringSubmatch(m)[4])
-		}))
+// Custom usage message
+func customUsage(output io.Writer, description, fieldWidth string) func() {
+	return func() {
+		fmt.Fprintf(output, "Usage: %s [OPTIONS] [-h, --help]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }())
+		fmt.Fprintf(output, "Description:\n  %s\n\n", description)
+		fmt.Fprintf(output, "Options:\n%s", getOptionsUsage(fieldWidth, false))
 	}
 }
 
-func customizeHelpMessage2(description string, maxLength *int, buffer *bytes.Buffer) {
-	func() { flag.CommandLine.SetOutput(buffer); flag.Usage(); flag.CommandLine.SetOutput(os.Stderr) }()
-	usageOption := regexp.MustCompile("(-\\S+)( *\\S*)+\n*\\s+"+UsageDummy+"\n\\s*").ReplaceAllString(buffer.String(), "")
-	re := regexp.MustCompile("\\s(-\\S+)( *\\S*)( *\\S*)+\n\\s+(.+)")
-	usageFirst := strings.Replace(strings.Replace(strings.Split(usageOption, "\n")[0], ":", " [OPTIONS] [-h, --help]", -1), " of ", ": ", -1) + "\n\nDescription:\n  " + description + "\n\nOptions:\n"
-	usageOptions := re.FindAllString(usageOption, -1)
-	for _, v := range usageOptions {
-		*maxLength = max(*maxLength, len(re.ReplaceAllString(v, " -$1")+re.ReplaceAllString(v, "$2"))+2)
-	}
-	usageOptionsRep := make([]string, 0)
-	for _, v := range usageOptions {
-		usageOptionsRep = append(usageOptionsRep, fmt.Sprintf("  -%-2s,%-"+strconv.Itoa(*maxLength)+"s%s", strings.Split(re.ReplaceAllString(v, "$4"), UsageDummy)[0], re.ReplaceAllString(v, " -$1")+re.ReplaceAllString(v, "$2"), strings.Split(re.ReplaceAllString(v, "$4"), UsageDummy)[1]+"\n"))
-	}
-	sort.SliceStable(usageOptionsRep, func(i, j int) bool {
-		return strings.Count(usageOptionsRep[i], UsageRequiredPrefix) > strings.Count(usageOptionsRep[j], UsageRequiredPrefix)
+// Get options usage message
+func getOptionsUsage(fieldWidth string, currentValue bool) string {
+	optionUsages := make([]string, 0)
+	flag.VisitAll(func(f *flag.Flag) {
+		if f.Usage == UsageDummy {
+			return
+		}
+		value := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(fmt.Sprintf("%T", f.Value), "*flag.", ""), "Value", ""), "bool", "")
+		if currentValue {
+			value = f.Value.String()
+		}
+		format := "  -%-2s, --%-" + fieldWidth + "s %s\n"
+		short := strings.Split(f.Usage, UsageDummy)[0]
+		mainUsage := strings.Split(f.Usage, UsageDummy)[1]
+		optionUsages = append(optionUsages, fmt.Sprintf(format, short, f.Name+" "+value, mainUsage))
 	})
-	flag.Usage = func() { _, _ = fmt.Fprint(flag.CommandLine.Output(), usageFirst+strings.Join(usageOptionsRep, "")) }
+	sort.SliceStable(optionUsages, func(i, j int) bool {
+		return strings.Count(optionUsages[i], Req) > strings.Count(optionUsages[j], Req)
+	})
+	return strings.Join(optionUsages, "")
 }
