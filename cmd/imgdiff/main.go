@@ -209,7 +209,7 @@ func processImages(cfg *config.AppConfig) error {
 
 	// 4. 差分画像を保存
 	if err := imageutil.SaveDiffImage(diffImage, optionOutput); err != nil {
-		return fmt.Errorf("Failed to save diff image: %v", err)
+		return fmt.Errorf("failed to save diff image: %v", err)
 	}
 
 	// 処理時間を表示
@@ -225,12 +225,12 @@ func loadImages() (imageA, imageB image.Image, err error) {
 
 	imageA, err = imageutil.LoadImage(optionImageInput1)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to load image A: %v", err)
+		return nil, nil, fmt.Errorf("failed to load image A: %v", err)
 	}
 
 	imageB, err = imageutil.LoadImage(optionImageInput2)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to load image B: %v", err)
+		return nil, nil, fmt.Errorf("failed to load image B: %v", err)
 	}
 
 	return imageA, imageB, nil
