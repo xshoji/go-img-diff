@@ -31,7 +31,7 @@ const (
 var (
 	// コマンドオプション表示に関する設定
 	commandDescription     = "Image difference detection and visualization tool."
-	commandOptionMaxLength = "32"
+	commandOptionMaxLength = 0
 
 	// 必須オプション
 	optionImageInput1 = defineFlagValue("i1", "input1", Req+"First image path", "", flag.String, flag.StringVar)
@@ -69,7 +69,7 @@ var (
 
 func init() {
 	// Customize the usage message
-	flag.Usage = customUsage(os.Stdout, commandDescription, commandOptionMaxLength)
+	flag.Usage = customUsage(os.Stdout, commandDescription, strconv.Itoa(commandOptionMaxLength))
 }
 
 // Build:
@@ -86,7 +86,7 @@ func main() {
 	}
 
 	// 設定情報の表示
-	fmt.Printf("[ Command options ]\n%s\n", getOptionsUsage(commandOptionMaxLength, true))
+	fmt.Printf("[ Command options ]\n%s\n", getOptionsUsage(strconv.Itoa(commandOptionMaxLength), true))
 
 	// 設定オブジェクトの作成
 	cfg := createAppConfig()
@@ -277,7 +277,7 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 	if defaultValue != zero {
 		flagUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
 	}
-
+	commandOptionMaxLength = max(commandOptionMaxLength, len(fmt.Sprintf("%s", long))+12)
 	f := flagFunc(long, defaultValue, flagUsage)
 	flagVarFunc(f, short, defaultValue, UsageDummy)
 	return f
