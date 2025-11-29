@@ -30,8 +30,9 @@ const (
 // アプリケーション設定とオプション
 var (
 	// コマンドオプション表示に関する設定
-	commandDescription     = "Image difference detection and visualization tool."
-	commandOptionMaxLength = 0
+	commandDescription           = "Image difference detection and visualization tool."
+	commandOptionMaxLength       = 0  // Auto-adjusted in defineFlagValue
+	commandRequiredOptionExample = "" // Auto-adjusted in defineFlagValue
 
 	// 必須オプション
 	optionImageInput1 = defineFlagValue("i1", "input1", Req+"First image path", "", flag.String, flag.StringVar)
@@ -277,6 +278,9 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 	if defaultValue != zero {
 		flagUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
 	}
+	if strings.Contains(description, Req) {
+		commandRequiredOptionExample = commandRequiredOptionExample + fmt.Sprintf("--%s %T ", long, defaultValue)
+	}
 	commandOptionMaxLength = max(commandOptionMaxLength, len(long)+12)
 	f := flagFunc(long, defaultValue, flagUsage)
 	flagVarFunc(f, short, defaultValue, UsageDummy)
@@ -286,7 +290,7 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 // Custom usage message
 func customUsage(output io.Writer, description, fieldWidth string) func() {
 	return func() {
-		fmt.Fprintf(output, "Usage: %s [OPTIONS]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }())
+		fmt.Fprintf(output, "Usage: %s %s[OPTIONS]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }(), commandRequiredOptionExample)
 		fmt.Fprintf(output, "Description:\n  %s\n\n", description)
 		fmt.Fprintf(output, "Options:\n%s", getOptionsUsage(fieldWidth, false))
 	}
