@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,7 +21,7 @@ import (
 
 // 定数定義
 const (
-	Req        = "\u001B[33m(REQ)\u001B[0m "
+	Req        = "\u001B[33m(required)\u001B[0m "
 	UsageDummy = "########"
 	TimeFormat = "2006-01-02 15:04:05.0000 [MST]"
 )
@@ -30,9 +29,7 @@ const (
 // アプリケーション設定とオプション
 var (
 	// コマンドオプション表示に関する設定
-	commandDescription           = "Image difference detection and visualization tool."
-	commandOptionMaxLength       = 0  // Auto-adjusted in defineFlagValue
-	commandRequiredOptionExample = "" // Auto-adjusted in defineFlagValue
+	commandDescription = "Image difference detection and visualization tool."
 
 	// 必須オプション
 	optionImageInput1 = defineFlagValue("i1", "input1", Req+"First image path", "", flag.String, flag.StringVar)
@@ -70,7 +67,7 @@ var (
 
 func init() {
 	// Customize the usage message
-	flag.Usage = customUsage(os.Stdout, commandDescription, strconv.Itoa(commandOptionMaxLength))
+	flag.Usage = customUsage(commandDescription)
 }
 
 // Build:
@@ -87,7 +84,8 @@ func main() {
 	}
 
 	// 設定情報の表示
-	fmt.Printf("[ Command options ]\n%s\n", getOptionsUsage(strconv.Itoa(commandOptionMaxLength), true))
+	optionValues, _ := getOptionsUsage(true)
+	fmt.Printf("[ Command options ]\n%s\n", optionValues)
 
 	// 設定オブジェクトの作成
 	cfg := createAppConfig()
@@ -278,42 +276,49 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 	if defaultValue != zero {
 		flagUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
 	}
-	if strings.Contains(description, Req) {
-		commandRequiredOptionExample = commandRequiredOptionExample + fmt.Sprintf("--%s %T ", long, defaultValue)
-	}
-	commandOptionMaxLength = max(commandOptionMaxLength, len(long)+12)
 	f := flagFunc(long, defaultValue, flagUsage)
 	flagVarFunc(f, short, defaultValue, UsageDummy)
 	return f
 }
 
 // Custom usage message
-func customUsage(output io.Writer, description, fieldWidth string) func() {
+func customUsage(description string) func() {
 	return func() {
-		fmt.Fprintf(output, "Usage: %s %s[OPTIONS]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }(), commandRequiredOptionExample)
-		fmt.Fprintf(output, "Description:\n  %s\n\n", description)
-		fmt.Fprintf(output, "Options:\n%s", getOptionsUsage(fieldWidth, false))
+		optionsUsage, requiredOptionExample := getOptionsUsage(false)
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s %s[OPTIONS]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }(), requiredOptionExample)
+		fmt.Fprintf(flag.CommandLine.Output(), "Description:\n  %s\n\n", description)
+		fmt.Fprintf(flag.CommandLine.Output(), "Options:\n%s", optionsUsage)
 	}
 }
 
 // Get options usage message
-func getOptionsUsage(fieldWidth string, currentValue bool) string {
-	optionUsages := make([]string, 0)
+func getOptionsUsage(currentValue bool) (string, string) {
+	requiredOptionExample := ""
+	optionNameWidth := 0
+	usages := make([]string, 0)
+	getType := func(v string) string {
+		return strings.NewReplacer("*flag.boolValue", "", "*flag.", "<", "Value", ">").Replace(v)
+	}
+	flag.VisitAll(func(f *flag.Flag) {
+		optionNameWidth = max(optionNameWidth, len(fmt.Sprintf("%s %s", f.Name, getType(fmt.Sprintf("%T", f.Value))))+4)
+	})
 	flag.VisitAll(func(f *flag.Flag) {
 		if f.Usage == UsageDummy {
 			return
 		}
-		value := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(fmt.Sprintf("%T", f.Value), "*flag.", ""), "Value", ""), "bool", "")
+		value := getType(fmt.Sprintf("%T", f.Value))
 		if currentValue {
 			value = f.Value.String()
 		}
-		format := "  -%-2s, --%-" + fieldWidth + "s %s\n"
 		short := strings.Split(f.Usage, UsageDummy)[0]
 		mainUsage := strings.Split(f.Usage, UsageDummy)[1]
-		optionUsages = append(optionUsages, fmt.Sprintf(format, short, f.Name+" "+value, mainUsage))
+		if strings.Contains(mainUsage, Req) {
+			requiredOptionExample += fmt.Sprintf("--%s %s ", f.Name, value)
+		}
+		usages = append(usages, fmt.Sprintf("  -%-2s, --%-"+strconv.Itoa(optionNameWidth)+"s %s\n", short, f.Name+" "+value, mainUsage))
 	})
-	sort.SliceStable(optionUsages, func(i, j int) bool {
-		return strings.Count(optionUsages[i], Req) > strings.Count(optionUsages[j], Req)
+	sort.SliceStable(usages, func(i, j int) bool {
+		return strings.Count(usages[i], Req) > strings.Count(usages[j], Req)
 	})
-	return strings.Join(optionUsages, "")
+	return strings.Join(usages, ""), requiredOptionExample
 }
