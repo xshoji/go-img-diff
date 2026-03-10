@@ -54,6 +54,10 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
 
 ### Display Settings
 
+- `-l`, `--layout` : Output layout (default: "simple")
+  - `simple`: Outputs only the diff image
+  - `horizontal`: Outputs the original image and diff image side by side
+
 - `-od`, `--overlay-disable` : Disable transparent overlay of the original image in diff areas (default: false)
 - `-ot`, `--overlay-transparency` : Transparency of the original image (default: 0.95)
   - 0.0=completely opaque, 1.0=completely transparent
@@ -65,9 +69,10 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
 - `-tw`, `--tint-weight` : Tint transparency (default: 0.2)
   - 0.0=completely opaque, 1.0=completely transparent
 
-### Other
+### Performance
 
-- `-c`, `--cpu` : Number of CPU cores to use (default: number of cores on the system)
+- `-c`, `--cpu` : Number of CPU cores to use for parallel processing (default: 8)
+  - Limits parallelization for processing multiple regions. Useful for controlling resource usage on multi-core systems.
 
 ## Processing Modes
 
