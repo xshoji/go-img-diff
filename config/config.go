@@ -28,6 +28,9 @@ type AppConfig struct {
 	UseTint                bool       // 色調を適用するかどうか
 	TintStrength           float64    // 色調の強さ (0.0～1.0)
 	TintTransparency       float64    // 色調の透明度 (0.0=不透明、1.0=完全透明)
+
+	// 出力レイアウトの設定
+	OutputLayout string // 出力レイアウト ("simple"=差分画像のみ, "horizontal"=元画像と差分画像を水平結合)
 }
 
 // NewDefaultConfig はデフォルト設定を持つ新しいAppConfigを返す
@@ -46,5 +49,6 @@ func NewDefaultConfig() *AppConfig {
 		UseTint:                true,                       // デフォルトで色調を適用
 		TintStrength:           0.7,                        // 70%の色調強度
 		TintTransparency:       0.2,                        // 20%の色調透明度（より鮮明な色調）
+		OutputLayout:           "simple",                   // デフォルトは差分画像のみ
 	}
 }

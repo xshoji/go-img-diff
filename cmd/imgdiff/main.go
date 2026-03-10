@@ -61,6 +61,9 @@ var (
 	optionTintStrength     = defineFlagValue("ts", "tint-strength", "Tint strength (0.0=no tint, 1.0=full tint)", 0.05, flag.Float64, flag.Float64Var)
 	optionTintTransparency = defineFlagValue("tw", "tint-weight", "Transparency level for tint (0.0=opaque, 1.0=transparent)", 0.2, flag.Float64, flag.Float64Var)
 
+	// 出力レイアウト設定
+	optionOutputLayout = defineFlagValue("l", "layout", "Output layout: 'simple' (diff image only) or 'horizontal' (input1 + diff side by side)", "simple", flag.String, flag.StringVar)
+
 	// 差分検出時に終了ステータス1で終了するオプション
 	optionExitOnDiff = defineFlagValue("e", "exit-on-diff", "Exit with status code 1 if differences are found (does not save diff image)", false, flag.Bool, flag.BoolVar)
 )
@@ -80,6 +83,12 @@ func main() {
 	if err := validateRequiredOptions(); err != nil {
 		fmt.Println(err)
 		flag.Usage()
+		os.Exit(1)
+	}
+
+	// レイアウトオプションのバリデーション
+	if *optionOutputLayout != "simple" && *optionOutputLayout != "horizontal" {
+		fmt.Printf("[ERROR] Invalid layout value '%s'. Must be 'simple' or 'horizontal'.\n", *optionOutputLayout)
 		os.Exit(1)
 	}
 
@@ -146,6 +155,7 @@ func createAppConfig() *config.AppConfig {
 		UseTint:                !*optionDisableTint,
 		TintStrength:           tintStrength,
 		TintTransparency:       tintTransparency,
+		OutputLayout:           *optionOutputLayout,
 	}
 }
 
@@ -206,8 +216,15 @@ func processImages(cfg *config.AppConfig) error {
 		os.Exit(1)
 	}
 
-	// 4. 差分画像を保存
-	if err := imageutil.SaveDiffImage(diffImage, optionOutput); err != nil {
+	// 4. レイアウトに応じて出力画像を生成
+	outputImage := diffImage
+	if cfg.OutputLayout == "horizontal" {
+		fmt.Printf("[INFO] Applying horizontal layout (input1 + diff)...\n")
+		outputImage = imageutil.CombineHorizontal(imageA, diffImage)
+	}
+
+	// 5. 差分画像を保存
+	if err := imageutil.SaveDiffImage(outputImage, optionOutput); err != nil {
 		return fmt.Errorf("failed to save diff image: %v", err)
 	}
 
