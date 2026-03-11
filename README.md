@@ -14,11 +14,11 @@ This tool is implemented with **zero external dependencies and uses only the sta
 
 **Output example**
 
-`imgdiff -i1 ~/Desktop/before.png -i2 ~/Desktop/after.png -o ~/Desktop/diff1.png -ot 0.99`
+`imgdiff -i1 image1.png -i2 image2.png -o diff1.png -ot 0.99`
 
 <img width="60%" alt="output" src="https://github.com/user-attachments/assets/ee223fb6-0150-453b-ab2e-a27bfece28fb" />
 
-`imgdiff -i1 ~/Desktop/before.png -i2 ~/Desktop/after.png -o ~/Desktop/diff2.png -od -l horizontal`
+`imgdiff -i1 image1.png -i2 image2.png -o diff2.png -od -l horizontal`
 
 <img width="90%" alt="output" src="https://github.com/user-attachments/assets/d1964692-f8d9-4723-a231-8fba162fce09" />
 
