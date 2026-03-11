@@ -44,6 +44,7 @@ brews:
     repository:
       owner: xshoji
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
     homepage: https://github.com/xshoji/go-img-diff
     description: Detect and visualize differences between two images
