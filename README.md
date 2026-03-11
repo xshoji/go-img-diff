@@ -10,11 +10,18 @@ This tool is implemented with **zero external dependencies and uses only the sta
 
 **Input**
 
-<img width="40%" alt="input1" src="https://github.com/user-attachments/assets/ff098e59-e5e5-406a-910e-f019d8e2f897"> <img width="40%" alt="input2" src="https://github.com/user-attachments/assets/b847449f-9c17-4400-a959-352ab9f82193">
+<img width="40%" alt="input1" src="https://github.com/user-attachments/assets/e14b09b9-b36d-43d3-8016-4a4fb267a225"> <img width="40%" alt="input2" src="https://github.com/user-attachments/assets/55c9bab5-5847-4d89-8a18-2f26a396e707">
 
-**Output**
+**Output example**
 
-<img width="70%" alt="output" src="https://github.com/user-attachments/assets/ac358195-a15a-4673-a878-3a7080840516" />
+`imgdiff -i1 ~/Desktop/before.png -i2 ~/Desktop/after.png -o ~/Desktop/diff1.png -ot 0.99`
+
+<img width="60%" alt="output" src="https://github.com/user-attachments/assets/ee223fb6-0150-453b-ab2e-a27bfece28fb" />
+
+`imgdiff -i1 ~/Desktop/before.png -i2 ~/Desktop/after.png -o ~/Desktop/diff2.png -od -l horizontal`
+
+<img width="90%" alt="output" src="https://github.com/user-attachments/assets/d1964692-f8d9-4723-a231-8fba162fce09" />
+
 
 ## Install
 
