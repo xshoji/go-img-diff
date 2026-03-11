@@ -1,6 +1,6 @@
 # go-img-diff
 
-> **Note**: This repository contains code that was largely generated with the assistance of GitHub Copilot (Claude 3.7 Sonnet).
+> **Note**: This repository contains code that was largely generated with the assistance of AmpCode (Claude Opus 4.6).
 
 A tool to detect and visualize differences between images. It automatically detects positional deviations, performs optimal alignment, and highlights differences with red borders. It can also overlay the original image with colored transparency within the difference regions.
 
