@@ -39,6 +39,16 @@ archives:
 snapshot:
   name_template: "{{ .Tag }}-next-{{.ShortCommit}}"
   version_template: "{{ .Tag }}-next"
+brews:
+  - name: imgdiff
+    repository:
+      owner: xshoji
+      name: homebrew-tap
+      directory: Formula
+    homepage: https://github.com/xshoji/go-img-diff
+    description: Detect and visualize differences between two images
+    install: |
+      bin.install "imgdiff"
 changelog:
   sort: asc
   filters:
