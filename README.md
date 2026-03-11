@@ -16,6 +16,13 @@ This tool is implemented with **zero external dependencies and uses only the sta
 
 <img width="70%" alt="output" src="https://github.com/user-attachments/assets/ac358195-a15a-4673-a878-3a7080840516" />
 
+## Install
+
+```bash
+go install github.com/xshoji/go-img-diff/cmd/imgdiff@latest
+```
+
+Or download pre-built binaries from the [Releases](https://github.com/xshoji/go-img-diff/releases) page.
 
 ## Usage
 
@@ -27,13 +34,13 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
 
 ### Required Options
 
-- `-i1`, `--input1` : Path to the original image
-- `-i2`, `--input2` : Path to the comparison image
-- `-o`, `--output` : Path to the output diff image
+- `-i1`, `--input1` : Path to the first image
+- `-i2`, `--input2` : Path to the second image
+- `-o`, `--output` : Path to the output diff image (required unless `-e` is specified)
 
 ### Misalignment Detection Settings
 
-- `-m`, `--max-offset` : Maximum offset (in pixels) (default: 10)
+- `-m`, `--max-offset` : Maximum pixel offset to search for alignment (default: 10)
   - Search range for image alignment. Larger values detect greater misalignments but increase processing time.
 
 ### Difference Detection Settings
@@ -42,47 +49,47 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
   - Lower values detect smaller differences; higher values detect only larger differences.
   
 - `-e`, `--exit-on-diff` : Exit with status code 1 if differences are found (default: false)
-  - When enabled, the program will exit immediately after detecting differences without saving the diff image
+  - When enabled, the program exits with status code 1 if differences are detected. The `-o` option can be omitted to skip saving the diff image.
 
 ### Speedup Settings
 
-- `-s`, `--sampling` : Sampling rate (default: 4)
-  - 1=all pixels, 2=1/4 of pixels, 4=1/16 of pixels are compared. Higher values speed up processing but reduce accuracy.
+- `-s`, `--sampling` : Sampling rate for pixel comparison (default: 4)
+  - 1=all pixels, higher values speed up processing but may reduce accuracy.
 
 - `-p`, `--precise` : Enable precise mode (default: false)
-  - Disables the default fast mode for more accurate comparison.
+  - Uses a larger pyramid min-size for more accurate comparison at the cost of processing time.
 
 ### Display Settings
 
 - `-l`, `--layout` : Output layout (default: "simple")
   - `simple`: Outputs only the diff image
-  - `horizontal`: Outputs the original image and diff image side by side
+  - `horizontal`: Outputs the first image and diff image side by side
 
-- `-od`, `--overlay-disable` : Disable transparent overlay of the original image in diff areas (default: false)
-- `-ot`, `--overlay-transparency` : Transparency of the original image (default: 0.95)
+- `-od`, `--overlay-disable` : Disable transparent overlay of the first image in diff areas (default: false)
+- `-ot`, `--overlay-transparency` : Transparency level for overlay (default: 0.95)
   - 0.0=completely opaque, 1.0=completely transparent
 
 - `-td`, `--tint-disable` : Disable color tint on the transparent overlay (default: false)
-- `-tc`, `--tint-color` : Tint color as R,G,B (default: "255,0,0")
+- `-tc`, `--tint-color` : Tint color as R,G,B (0-255 for each value) (default: "255,0,0")
 - `-ts`, `--tint-strength` : Tint strength (default: 0.05)
-  - 0.0=no tint (original image as is), 1.0=tint only
-- `-tw`, `--tint-weight` : Tint transparency (default: 0.2)
+  - 0.0=no tint (original image as is), 1.0=full tint
+- `-tw`, `--tint-weight` : Transparency level for tint (default: 0.2)
   - 0.0=completely opaque, 1.0=completely transparent
 
 ### Performance
 
-- `-c`, `--cpu` : Number of CPU cores to use for parallel processing (default: 8)
+- `-c`, `--cpu` : Number of CPU cores to use for parallel processing (default: number of available CPU cores)
   - Limits parallelization for processing multiple regions. Useful for controlling resource usage on multi-core systems.
 
 ## Processing Modes
 
 ### Fast Mode (Default)
 
-Uses progressive sampling to reduce processing time for large images. It first identifies the overall position with coarse sampling, then gradually improves accuracy with finer sampling.
+Uses a pyramid multi-scale approach to reduce processing time for large images. It first identifies the overall position with coarse sampling at reduced scales, then gradually refines accuracy at finer scales.
 
 ### Precise Mode (-p, --precise)
 
-Performs all comparisons at the specified sampling rate for maximum accuracy. This increases processing time but is useful when more accurate alignment is required.
+Uses a larger pyramid min-size for more accurate comparison. This increases processing time but is useful when more accurate alignment is required.
 
 ## Transparent Overlay Feature
 
@@ -113,12 +120,12 @@ Pushing Git tags triggers the release job.
 
 ```
 # Release
-git tag v0.0.2 && git push --tags
+git tag v0.0.6 && git push --tags
 
 
 # Delete tag
-echo "v0.0.1" |xargs -I{} bash -c "git tag -d {} && git push origin :{}"
+echo "v0.0.5" |xargs -I{} bash -c "git tag -d {} && git push origin :{}"
 
 # Delete tag and recreate new tag and push
-echo "v0.0.2" |xargs -I{} bash -c "git tag -d {} && git push origin :{}; git tag {} -m \"Release beta version.\"; git push --tags"
+echo "v0.0.6" |xargs -I{} bash -c "git tag -d {} && git push origin :{}; git tag {} -m \"Release beta version.\"; git push --tags"
 ```
