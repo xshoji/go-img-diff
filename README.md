@@ -18,6 +18,14 @@ This tool is implemented with **zero external dependencies and uses only the sta
 
 ## Install
 
+### Homebrew
+
+```bash
+brew install xshoji/tap/imgdiff
+```
+
+### Go
+
 ```bash
 go install github.com/xshoji/go-img-diff/cmd/imgdiff@latest
 ```
