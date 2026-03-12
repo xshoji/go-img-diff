@@ -139,8 +139,8 @@ git tag v0.0.6 && git push --tags
 
 
 # Delete tag
-echo "v0.0.5" |xargs -I{} bash -c "git tag -d {} && git push origin :{}"
+v="v0.0.6"; git tag -d "${v}" && git push origin :"${v}"
 
 # Delete tag and recreate new tag and push
-echo "v0.0.6" |xargs -I{} bash -c "git tag -d {} && git push origin :{}; git tag {} -m \"Release beta version.\"; git push --tags"
+v="v0.0.6"; git tag -d "${v}" && git push origin :"${v}"; git tag "${v}" -m "Release "; git push --tags
 ```
