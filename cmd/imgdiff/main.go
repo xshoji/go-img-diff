@@ -16,6 +16,9 @@ import (
 	"github.com/xshoji/go-img-diff/internal/core"
 )
 
+// version is set at build time via ldflags.
+var version = "dev"
+
 const (
 	Req        = "\033[33m(required)\033[0m "
 	UsageDummy = "########"
@@ -236,7 +239,7 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 func customUsage(description string) func() {
 	return func() {
 		optionsUsage, requiredOptionExample := getOptionsUsage(false)
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s %s[OPTIONS]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }(), requiredOptionExample)
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s %s[OPTIONS]\n  version: %s\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }(), requiredOptionExample, version)
 		fmt.Fprintf(flag.CommandLine.Output(), "Description:\n  %s\n\n", description)
 		fmt.Fprintf(flag.CommandLine.Output(), "Options:\n%s", optionsUsage)
 	}
