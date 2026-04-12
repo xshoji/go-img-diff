@@ -4,6 +4,8 @@
 
 A tool to detect and visualize differences between images. It automatically detects positional deviations, performs optimal alignment, and highlights differences with red borders. It can also overlay the original image with colored transparency within the difference regions.
 
+It uses dynamic-programming-based vertical matching to re-synchronize shifted page content before calculating the final diff. The matching is applied independently to vertical strips, so fixed sidebars and shifted main content can be compared with different local alignments instead of being forced into a single whole-image offset.
+
 This tool is implemented with **zero external dependencies and uses only the standard Go libraries for image processing**.
 
 ---
@@ -82,11 +84,8 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
 
 ### Speedup Settings
 
-- `-s`, `--sampling` : Sampling rate for pixel comparison (default: 4)
-  - 1=all pixels, higher values speed up processing but may reduce accuracy.
-
 - `-p`, `--precise` : Enable precise mode (default: false)
-  - Uses a larger pyramid min-size for more accurate comparison at the cost of processing time.
+  - Uses a more accurate alignment search configuration at the cost of processing time.
 
 ### Display Settings
 
@@ -108,17 +107,18 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
 ### Performance
 
 - `-c`, `--cpu` : Number of CPU cores to use for parallel processing (default: number of available CPU cores)
-  - Limits parallelization for processing multiple regions. Useful for controlling resource usage on multi-core systems.
+  - Limits the worker count used across alignment, diff, and region-processing stages.
+  - Useful for controlling CPU usage on multi-core systems.
 
 ## Processing Modes
 
 ### Fast Mode (Default)
 
-Uses a pyramid multi-scale approach to reduce processing time for large images. It first identifies the overall position with coarse sampling at reduced scales, then gradually refines accuracy at finer scales.
+Uses a pyramid multi-scale approach to reduce processing time for large images. It first identifies the overall position at reduced scales, then gradually refines accuracy at finer scales.
 
 ### Precise Mode (-p, --precise)
 
-Uses a larger pyramid min-size for more accurate comparison. This increases processing time but is useful when more accurate alignment is required.
+Uses a more exhaustive alignment search for more accurate comparison. This increases processing time but is useful when more accurate alignment is required.
 
 ## Transparent Overlay Feature
 
