@@ -58,10 +58,24 @@ imgdiff -i1 original_image.png -i2 compared_image.png -o diff_image.png [options
 - `-m`, `--max-offset` : Maximum pixel offset to search for alignment (default: 10)
   - Search range for image alignment. Larger values detect greater misalignments but increase processing time.
 
+- `-sw`, `--strip-width` : Width of each vertical strip used for local DP realignment (default: 320)
+  - Smaller values preserve independently fixed areas like sidebars more aggressively.
+  - Larger values allow broader content blocks to move together, but may pull unrelated columns into the same alignment.
+
 ### Difference Detection Settings
 
 - `-d`, `--diff-threshold` : Color difference threshold (0-255) (default: 30)
   - Lower values detect smaller differences; higher values detect only larger differences.
+
+- `-nw`, `--noise-window-size` : Local window size for sparse-noise filtering (default: 0)
+  - Set a value like `5`, `7`, or `9` to evaluate diff density in a local neighborhood.
+
+- `-nr`, `--noise-min-ratio` : Minimum diff density in the local window to keep a diff pixel (default: 0.0)
+  - Useful for ignoring sparse noise from compression artifacts or subtle image degradation.
+  - Example: `-nw 7 -nr 0.08`
+
+- `-ra`, `--min-region-area` : Minimum diff region area to keep (default: 4)
+  - Higher values ignore tiny residual differences and small noise-like regions.
   
 - `-e`, `--exit-on-diff` : Exit with status code 1 if differences are found (default: false)
   - When enabled, the program exits with status code 1 if differences are detected. The `-o` option can be omitted to skip saving the diff image.
