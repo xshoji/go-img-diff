@@ -45,9 +45,6 @@ var (
 	// Runtime
 	optionNumCPU = defineFlagValue("c", "cpu", "Number of CPU cores to use for parallel processing", runtime.NumCPU(), flag.Int, flag.IntVar)
 
-	// Sampling (kept for backward compat, controls MinPyramidSize)
-	optionSamplingRate = defineFlagValue("s", "sampling", "Sampling rate for pixel comparison (1=all pixels, higher=faster)", 4, flag.Int, flag.IntVar)
-
 	// Precise mode (disables pyramid multi-scale, uses single-scale brute force)
 	optionPreciseMode = defineFlagValue("p", "precise", "Enable precise mode (larger pyramid min-size for more accurate comparison)", false, flag.Bool, flag.BoolVar)
 
@@ -143,9 +140,6 @@ func buildOptions(layout core.Layout) core.Options {
 	if *optionPreciseMode {
 		minPyramidSize = 8 // more levels for more accuracy
 	}
-
-	// Sampling rate affects MinPyramidSize inversely
-	_ = *optionSamplingRate // kept for backward compat
 
 	opts.Input1 = *optionImageInput1
 	opts.Input2 = *optionImageInput2
