@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"image"
+	"io"
 	"log/slog"
 	"runtime"
 	"time"
@@ -43,13 +44,25 @@ func Run(opts core.Options, exitOnDiff bool, logger *slog.Logger) (bool, error) 
 
 	// 2. Align
 	alignment := align.Align(frameA, frameB, opts.Align, opts.Runtime.Workers, logger)
+	baseRowAlignment := core.NewRowAlignmentFromAlignment(frameB.W, frameB.H, alignment)
+	rowAlignment := baseRowAlignment
 
-	// 3. Build diff mask (with StopAfterFirst if exitOnDiff)
-	diffOpts := opts.Diff
-	if exitOnDiff {
-		diffOpts.StopAfterFirst = true
+	// 3. Build diff mask and refine dirty vertical strips with local DP.
+	mask := diff.BuildMask(frameA, frameB, baseRowAlignment, opts.Diff, logger)
+	baseDiffPixels := mask.Count
+	if opts.VerticalAlign.Enabled && baseDiffPixels > 0 {
+		stripWidth := verticalAlignStripWidth(opts.VerticalAlign, frameB.W)
+		rowAlignment, correctedStrips := mergeRowAlignmentByStrip(frameA, frameB, alignment, baseRowAlignment, mask, opts, stripWidth)
+		if correctedStrips > 0 {
+			mask = diff.BuildMask(frameA, frameB, rowAlignment, opts.Diff, logger)
+		}
+		logger.Info("vertical dp alignment applied per strip",
+			"baseDiffPixels", baseDiffPixels,
+			"finalDiffPixels", mask.Count,
+			"stripWidth", stripWidth,
+			"correctedStrips", correctedStrips,
+		)
 	}
-	mask := diff.BuildMask(frameA, frameB, alignment, diffOpts, logger)
 
 	hasDiff := mask.Count > 0
 
@@ -66,7 +79,7 @@ func Run(opts core.Options, exitOnDiff bool, logger *slog.Logger) (bool, error) 
 	regions := region.Extract(mask, opts.Region, logger)
 
 	// 5. Render
-	diffImage := render.Render(frameA, frameB, mask, regions, alignment, opts.Render, logger)
+	diffImage := render.Render(frameA, frameB, mask, regions, rowAlignment, opts.Render, logger)
 
 	// 6. Apply layout
 	var outputImage image.Image = diffImage
@@ -86,4 +99,62 @@ func Run(opts core.Options, exitOnDiff bool, logger *slog.Logger) (bool, error) 
 	logger.Info("pipeline complete", "elapsed", elapsed.Round(time.Millisecond), "hasDiff", hasDiff, "regions", len(regions))
 
 	return hasDiff, nil
+}
+
+func verticalAlignStripWidth(opts core.VerticalAlignOptions, frameWidth int) int {
+	if opts.StripWidth > 0 {
+		return min(frameWidth, opts.StripWidth)
+	}
+	return min(frameWidth, 320)
+}
+
+func mergeRowAlignmentByStrip(a, b *core.Frame, global core.Alignment, base core.RowAlignment, baseMask *core.Mask, opts core.Options, stripWidth int) (core.RowAlignment, int) {
+	if stripWidth <= 0 {
+		stripWidth = b.W
+	}
+	merged := base.Clone()
+	quietLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	correctedStrips := 0
+
+	for minX := 0; minX < b.W; minX += stripWidth {
+		maxX := min(b.W, minX+stripWidth)
+		baseStripDiffPixels := countMaskPixelsInColumns(baseMask, minX, maxX)
+		if baseStripDiffPixels == 0 {
+			continue
+		}
+
+		candidate := align.VerticalDPAlignInRange(a, b, global, opts.VerticalAlign, minX, maxX, quietLogger)
+		candidateMask := diff.BuildMask(a, b, candidate, opts.Diff, quietLogger)
+		candidateStripDiffPixels := countMaskPixelsInColumns(candidateMask, minX, maxX)
+		if candidateStripDiffPixels >= baseStripDiffPixels {
+			continue
+		}
+
+		merged.ApplyRange(minX, maxX, candidate)
+		correctedStrips++
+	}
+
+	return merged, correctedStrips
+}
+
+func countMaskPixelsInColumns(mask *core.Mask, minX, maxX int) int {
+	if mask == nil {
+		return 0
+	}
+	minX = max(0, min(mask.W, minX))
+	maxX = max(0, min(mask.W, maxX))
+	if minX >= maxX {
+		return 0
+	}
+
+	count := 0
+	for y := 0; y < mask.H; y++ {
+		rowOffset := y * mask.W
+		for x := minX; x < maxX; x++ {
+			if mask.Data[rowOffset+x] != 0 {
+				count++
+			}
+		}
+	}
+	return count
 }

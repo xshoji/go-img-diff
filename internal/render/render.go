@@ -11,7 +11,7 @@ import (
 
 // Render creates the diff visualization image.
 // Base: frame B. Overlay: aligned pixels from A with tint on diff pixels. Borders: around regions.
-func Render(a, b *core.Frame, mask *core.Mask, regions []core.Region, al core.Alignment, opts core.RenderOptions, logger *slog.Logger) *image.NRGBA {
+func Render(a, b *core.Frame, mask *core.Mask, regions []core.Region, rowAlign core.RowAlignment, opts core.RenderOptions, logger *slog.Logger) *image.NRGBA {
 	w := max(a.W, b.W)
 	h := max(a.H, b.H)
 	result := image.NewNRGBA(image.Rect(0, 0, w, h))
@@ -42,8 +42,12 @@ func Render(a, b *core.Frame, mask *core.Mask, regions []core.Region, al core.Al
 					}
 
 					// Source pixel from A (aligned)
-					srcX := x - al.DX
-					srcY := y - al.DY
+					srcY := rowAlign.SrcYAt(x, y)
+					if srcY == -1 {
+						continue
+					}
+					dx := rowAlign.DXAt(x, y)
+					srcX := x - dx
 					if srcX < 0 || srcX >= a.W || srcY < 0 || srcY >= a.H {
 						continue
 					}

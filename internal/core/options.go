@@ -12,10 +12,23 @@ type AlignOptions struct {
 	RefinementRadius int // search radius at each finer level (default: 2)
 }
 
+// VerticalAlignOptions configures stripe-based dynamic-programming alignment.
+type VerticalAlignOptions struct {
+	Enabled      bool
+	BandHeight   int
+	StripWidth   int
+	FeatureBins  int
+	MaxBandShift int
+	GapPenalty   float64
+	BlankInkMax  float64
+}
+
 // DiffOptions configures pixel diff detection.
 type DiffOptions struct {
-	Threshold      uint8 // 0-255 max channel difference
-	StopAfterFirst bool  // for --exit-on-diff: stop after first diff pixel
+	Threshold         uint8   // 0-255 max channel difference
+	StopAfterFirst    bool    // for --exit-on-diff: stop after first diff pixel
+	NoiseWindowSize   int     // local window size for sparse-noise suppression (0=disabled)
+	NoiseMinDiffRatio float64 // minimum diff density in the local window to keep a diff pixel
 }
 
 // RegionOptions configures connected-component region extraction.
@@ -50,14 +63,15 @@ type OutputOptions struct {
 
 // Options is the top-level configuration aggregating all stage options.
 type Options struct {
-	Input1  string
-	Input2  string
-	Align   AlignOptions
-	Diff    DiffOptions
-	Region  RegionOptions
-	Render  RenderOptions
-	Runtime RuntimeOptions
-	Output  OutputOptions
+	Input1        string
+	Input2        string
+	Align         AlignOptions
+	VerticalAlign VerticalAlignOptions
+	Diff          DiffOptions
+	Region        RegionOptions
+	Render        RenderOptions
+	Runtime       RuntimeOptions
+	Output        OutputOptions
 }
 
 // DefaultOptions returns options with sensible defaults.
@@ -68,8 +82,19 @@ func DefaultOptions() Options {
 			MinPyramidSize:   32,
 			RefinementRadius: 2,
 		},
+		VerticalAlign: VerticalAlignOptions{
+			Enabled:      true,
+			BandHeight:   8,
+			StripWidth:   320,
+			FeatureBins:  32,
+			MaxBandShift: 0,
+			GapPenalty:   18.0,
+			BlankInkMax:  0.03,
+		},
 		Diff: DiffOptions{
-			Threshold: 30,
+			Threshold:         30,
+			NoiseWindowSize:   0,
+			NoiseMinDiffRatio: 0,
 		},
 		Region: RegionOptions{
 			MinArea:      4,

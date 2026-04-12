@@ -97,6 +97,75 @@ func TestMask(t *testing.T) {
 	m.Set(-1, 0) // should not panic
 }
 
+func TestNewRowAlignment(t *testing.T) {
+	ra := NewRowAlignment(10, 5, 3, 1)
+
+	if ra.Width != 10 || ra.Height != 5 {
+		t.Fatalf("expected 10x5 row alignment, got %dx%d", ra.Width, ra.Height)
+	}
+	if got := ra.SrcY(0); got != -1 {
+		t.Fatalf("expected row 0 to be unmapped, got %d", got)
+	}
+	if got := ra.SrcY(3); got != 2 {
+		t.Fatalf("expected row 3 -> 2, got %d", got)
+	}
+	if got := ra.DX(4); got != 3 {
+		t.Fatalf("expected DX 3, got %d", got)
+	}
+	if ra.HasMapping(0) {
+		t.Fatal("expected row 0 to be unmapped")
+	}
+	if !ra.HasMapping(3) {
+		t.Fatal("expected row 3 to be mapped")
+	}
+}
+
+func TestNewRowAlignmentFromAlignment(t *testing.T) {
+	ra := NewRowAlignmentFromAlignment(8, 4, Alignment{DX: 2, DY: -1, Score: 0.75})
+
+	if ra.Score != 0.75 {
+		t.Fatalf("expected score 0.75, got %f", ra.Score)
+	}
+	if got := ra.SrcY(0); got != 1 {
+		t.Fatalf("expected row 0 -> 1, got %d", got)
+	}
+	if got := ra.DX(2); got != 2 {
+		t.Fatalf("expected DX 2, got %d", got)
+	}
+}
+
+func TestRowAlignmentApplyRange(t *testing.T) {
+	base := NewRowAlignmentFromAlignment(8, 4, Alignment{DX: 0, DY: 0, Score: 0.2})
+	override := NewRowAlignmentFromAlignment(8, 4, Alignment{DX: 3, DY: -1, Score: 0.9})
+	base.ApplyRange(4, 8, override)
+
+	if got := base.SrcYAt(2, 1); got != 1 {
+		t.Fatalf("expected base mapping on left side, got %d", got)
+	}
+	if got := base.DXAt(2, 1); got != 0 {
+		t.Fatalf("expected base DX on left side, got %d", got)
+	}
+	if got := base.SrcYAt(6, 1); got != 2 {
+		t.Fatalf("expected override mapping on right side, got %d", got)
+	}
+	if got := base.DXAt(6, 1); got != 3 {
+		t.Fatalf("expected override DX on right side, got %d", got)
+	}
+	if base.Score != 0.9 {
+		t.Fatalf("expected score to follow stronger override, got %f", base.Score)
+	}
+
+	clone := base.Clone()
+	clone.SrcYByY[1] = -1
+	clone.Ranges[0].SrcYByY[1] = -1
+	if got := base.SrcYAt(2, 1); got != 1 {
+		t.Fatalf("expected clone mutation not to affect base row mapping, got %d", got)
+	}
+	if got := base.SrcYAt(6, 1); got != 2 {
+		t.Fatalf("expected clone mutation not to affect base range mapping, got %d", got)
+	}
+}
+
 func TestBlendColors(t *testing.T) {
 	tests := []struct {
 		name             string

@@ -33,10 +33,14 @@ var (
 	optionOutput      = defineFlagValue("o", "output", Req+"Output diff image path", "", flag.String, flag.StringVar)
 
 	// Alignment
-	optionMaxOffset = defineFlagValue("m", "max-offset", "Maximum pixel offset to search for alignment", 10, flag.Int, flag.IntVar)
+	optionMaxOffset  = defineFlagValue("m", "max-offset", "Maximum pixel offset to search for alignment", 10, flag.Int, flag.IntVar)
+	optionStripWidth = defineFlagValue("sw", "strip-width", "Width of each vertical strip used for local DP realignment", 320, flag.Int, flag.IntVar)
 
 	// Diff
-	optionThreshold = defineFlagValue("d", "diff-threshold", "Color difference threshold (0-255)", 30, flag.Int, flag.IntVar)
+	optionThreshold       = defineFlagValue("d", "diff-threshold", "Color difference threshold (0-255)", 30, flag.Int, flag.IntVar)
+	optionNoiseWindowSize = defineFlagValue("nw", "noise-window-size", "Local window size for sparse-noise filtering (0 disables)", 0, flag.Int, flag.IntVar)
+	optionNoiseMinRatio   = defineFlagValue("nr", "noise-min-ratio", "Minimum diff density in the local window to keep a diff pixel (0.0-1.0)", 0.0, flag.Float64, flag.Float64Var)
+	optionMinRegionArea   = defineFlagValue("ra", "min-region-area", "Minimum diff region area to keep (higher values ignore tiny differences)", 4, flag.Int, flag.IntVar)
 
 	// Runtime
 	optionNumCPU = defineFlagValue("c", "cpu", "Number of CPU cores to use for parallel processing", runtime.NumCPU(), flag.Int, flag.IntVar)
@@ -128,6 +132,7 @@ func validateRequiredOptions() error {
 
 func buildOptions(layout core.Layout) core.Options {
 	r, g, b := parseTintColor(*optionTintColor)
+	opts := core.DefaultOptions()
 
 	transparency := clampF64(*optionTransparency, 0.0, 1.0)
 	tintStrength := clampF64(*optionTintStrength, 0.0, 1.0)
@@ -142,40 +147,27 @@ func buildOptions(layout core.Layout) core.Options {
 	// Sampling rate affects MinPyramidSize inversely
 	_ = *optionSamplingRate // kept for backward compat
 
-	return core.Options{
-		Input1: *optionImageInput1,
-		Input2: *optionImageInput2,
-		Align: core.AlignOptions{
-			MaxOffset:        *optionMaxOffset,
-			MinPyramidSize:   minPyramidSize,
-			RefinementRadius: 2,
-		},
-		Diff: core.DiffOptions{
-			Threshold: uint8(clampInt(*optionThreshold, 0, 255)),
-		},
-		Region: core.RegionOptions{
-			MinArea:      4,
-			Padding:      5,
-			DilateRadius: 1,
-		},
-		Render: core.RenderOptions{
-			DrawOverlay:      !*optionNoOverlay,
-			OverlayAlpha:     transparency,
-			TintEnabled:      !*optionDisableTint,
-			TintColor:        color.NRGBA{uint8(r), uint8(g), uint8(b), 255},
-			TintStrength:     tintStrength,
-			TintTransparency: tintTransparency,
-			BorderColor:      color.NRGBA{255, 0, 0, 255},
-			BorderWidth:      3,
-			Layout:           layout,
-		},
-		Runtime: core.RuntimeOptions{
-			Workers: *optionNumCPU,
-		},
-		Output: core.OutputOptions{
-			Path: *optionOutput,
-		},
-	}
+	opts.Input1 = *optionImageInput1
+	opts.Input2 = *optionImageInput2
+	opts.Align.MaxOffset = *optionMaxOffset
+	opts.Align.MinPyramidSize = minPyramidSize
+	opts.Align.RefinementRadius = 2
+	opts.VerticalAlign.StripWidth = max(1, *optionStripWidth)
+	opts.Diff.Threshold = uint8(clampInt(*optionThreshold, 0, 255))
+	opts.Diff.NoiseWindowSize = max(0, *optionNoiseWindowSize)
+	opts.Diff.NoiseMinDiffRatio = clampF64(*optionNoiseMinRatio, 0.0, 1.0)
+	opts.Region.MinArea = max(0, *optionMinRegionArea)
+	opts.Render.DrawOverlay = !*optionNoOverlay
+	opts.Render.OverlayAlpha = transparency
+	opts.Render.TintEnabled = !*optionDisableTint
+	opts.Render.TintColor = color.NRGBA{uint8(r), uint8(g), uint8(b), 255}
+	opts.Render.TintStrength = tintStrength
+	opts.Render.TintTransparency = tintTransparency
+	opts.Render.Layout = layout
+	opts.Runtime.Workers = *optionNumCPU
+	opts.Output.Path = *optionOutput
+
+	return opts
 }
 
 func parseTintColor(colorStr string) (r, g, b int) {

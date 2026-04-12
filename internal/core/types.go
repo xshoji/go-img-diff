@@ -81,6 +81,150 @@ type Alignment struct {
 	Score  float64 // higher is better (0..1)
 }
 
+// RowAlignment maps each row in frame B to a source row in frame A.
+// SrcYByY[y] == -1 means the row has no correspondence in A and should be
+// treated as an inserted row in B.
+type RowAlignmentRange struct {
+	MinX, MaxX int
+	SrcYByY    []int
+	DXByY      []int
+}
+
+type RowAlignment struct {
+	Width, Height int
+	SrcYByY       []int
+	DXByY         []int
+	Ranges        []RowAlignmentRange
+	Score         float64
+}
+
+// NewRowAlignment creates a row mapping initialized from a global translation.
+func NewRowAlignment(width, height, defaultDX, defaultDY int) RowAlignment {
+	ra := RowAlignment{
+		Width:   width,
+		Height:  height,
+		SrcYByY: make([]int, height),
+		DXByY:   make([]int, height),
+	}
+
+	for y := 0; y < height; y++ {
+		srcY := y - defaultDY
+		if srcY < 0 || srcY >= height {
+			ra.SrcYByY[y] = -1
+		} else {
+			ra.SrcYByY[y] = srcY
+		}
+		ra.DXByY[y] = defaultDX
+	}
+
+	return ra
+}
+
+// NewRowAlignmentFromAlignment creates a row mapping from a global alignment.
+func NewRowAlignmentFromAlignment(width, height int, al Alignment) RowAlignment {
+	ra := NewRowAlignment(width, height, al.DX, al.DY)
+	ra.Score = al.Score
+	return ra
+}
+
+// SrcY returns the mapped source row for the given row in B.
+func (ra RowAlignment) SrcY(y int) int {
+	if y < 0 || y >= len(ra.SrcYByY) {
+		return -1
+	}
+	return ra.SrcYByY[y]
+}
+
+// DX returns the horizontal offset for the given row in B.
+func (ra RowAlignment) DX(y int) int {
+	if y < 0 || y >= len(ra.DXByY) {
+		return 0
+	}
+	return ra.DXByY[y]
+}
+
+// SrcYAt returns the mapped source row for pixel column x on row y in B.
+func (ra RowAlignment) SrcYAt(x, y int) int {
+	if y < 0 || y >= len(ra.SrcYByY) {
+		return -1
+	}
+	if r, ok := ra.rangeForX(x); ok {
+		return r.SrcYByY[y]
+	}
+	return ra.SrcYByY[y]
+}
+
+// DXAt returns the horizontal offset for pixel column x on row y in B.
+func (ra RowAlignment) DXAt(x, y int) int {
+	if y < 0 || y >= len(ra.DXByY) {
+		return 0
+	}
+	if r, ok := ra.rangeForX(x); ok {
+		return r.DXByY[y]
+	}
+	return ra.DXByY[y]
+}
+
+// HasMapping reports whether the given row in B has a corresponding row in A.
+func (ra RowAlignment) HasMapping(y int) bool {
+	return ra.SrcY(y) >= 0
+}
+
+// Clone makes a deep copy of the row alignment including column-specific overrides.
+func (ra RowAlignment) Clone() RowAlignment {
+	clone := RowAlignment{
+		Width:   ra.Width,
+		Height:  ra.Height,
+		SrcYByY: append([]int(nil), ra.SrcYByY...),
+		DXByY:   append([]int(nil), ra.DXByY...),
+		Score:   ra.Score,
+	}
+	if len(ra.Ranges) == 0 {
+		return clone
+	}
+	clone.Ranges = make([]RowAlignmentRange, 0, len(ra.Ranges))
+	for _, r := range ra.Ranges {
+		clone.Ranges = append(clone.Ranges, RowAlignmentRange{
+			MinX:    r.MinX,
+			MaxX:    r.MaxX,
+			SrcYByY: append([]int(nil), r.SrcYByY...),
+			DXByY:   append([]int(nil), r.DXByY...),
+		})
+	}
+	return clone
+}
+
+// ApplyRange overrides the row mapping inside [minX, maxX) with the given alignment.
+func (ra *RowAlignment) ApplyRange(minX, maxX int, other RowAlignment) {
+	if ra == nil {
+		return
+	}
+	minX = max(0, minX)
+	maxX = min(ra.Width, maxX)
+	if minX >= maxX {
+		return
+	}
+	ra.Ranges = append(ra.Ranges, RowAlignmentRange{
+		MinX:    minX,
+		MaxX:    maxX,
+		SrcYByY: append([]int(nil), other.SrcYByY...),
+		DXByY:   append([]int(nil), other.DXByY...),
+	})
+	if other.Score > ra.Score {
+		ra.Score = other.Score
+	}
+}
+
+func (ra RowAlignment) rangeForX(x int) (RowAlignmentRange, bool) {
+	for i := len(ra.Ranges) - 1; i >= 0; i-- {
+		r := ra.Ranges[i]
+		if x >= r.MinX && x < r.MaxX {
+			return r, true
+		}
+	}
+	return RowAlignmentRange{}, false
+}
+
 // Mask is a full-resolution binary diff mask (row-major, 0=same, 1=diff).
 type Mask struct {
 	W, H  int
@@ -120,11 +264,12 @@ type Region struct {
 
 // Result holds the output of the diff pipeline.
 type Result struct {
-	Aligned  Alignment
-	HasDiff  bool
-	Regions  []Region
-	DiffMask *Mask
-	Output   image.Image
+	Aligned    Alignment
+	RowAligned RowAlignment
+	HasDiff    bool
+	Regions    []Region
+	DiffMask   *Mask
+	Output     image.Image
 }
 
 // Layout defines the output image layout.
